@@ -1,0 +1,11 @@
+<template>
+    <div>
+        OMG IS THAT SCOTT THE WOZ?!?!?!?!?!?!??!?!??!?!?!?!?!?!?
+    </div>
+</template>
+
+<script lang="ts" setup>
+
+</script>
+
+<style></style>

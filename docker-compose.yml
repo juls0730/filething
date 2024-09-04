@@ -1,0 +1,35 @@
+name: filething
+
+networks:
+  filething:
+    external: false
+
+services:
+  filething:
+    build: .
+    environment:
+      - USER_UID=1000
+      - USER_GID=1000
+      - DB_HOST=db:5432
+      - DB_NAME=filething
+      - DB_USER=filething
+      - DB_PASSWD=filething
+    restart: always
+    networks:
+      - filething
+    depends_on:
+      - db
+    ports:
+      - "1323:1323"
+
+  db:
+    image: postgres:14
+    restart: always
+    environment:
+      - POSTGRES_USER=filething
+      - POSTGRES_PASSWD=filething
+      - POSTGRES_DB=filething
+    networks:
+      - filething
+    volumes:
+      - ./postgres:/var/lib/postgresql/data
