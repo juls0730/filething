@@ -27,6 +27,6 @@ type User struct {
 type Session struct {
 	bun.BaseModel `bun:"table:sessions,alias:u"`
 	ID            uuid.UUID `bun:",pk,type:uuid,default:uuid_generate_v4()"`
-	UserID        uuid.UUID `bun:"user_id,notnull"`
+	UserID        uuid.UUID `bun:"user_id,notnull,type:uuid"`
 	User          User      `bun:"rel:belongs-to,join:user_id=id"`
 }

@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"filething/middleware"
 	"filething/models"
 	"filething/routes"
 	"filething/ui"
@@ -14,7 +15,7 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
+	echoMiddleware "github.com/labstack/echo/v4/middleware"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/pgdialect"
 	"github.com/uptrace/bun/driver/pgdriver"
@@ -49,9 +50,9 @@ func main() {
 		}
 	})
 
-	e.Use(middleware.Gzip())
-	e.Use(middleware.CORS())
-	e.Use(middleware.CSRFWithConfig(middleware.CSRFConfig{
+	e.Use(echoMiddleware.Gzip())
+	e.Use(echoMiddleware.CORS())
+	e.Use(echoMiddleware.CSRFWithConfig(echoMiddleware.CSRFConfig{
 		TokenLookup:    "cookie:_csrf",
 		CookiePath:     "/",
 		CookieSecure:   true,
@@ -63,6 +64,12 @@ func main() {
 	{
 		api.POST("/login", routes.LoginHandler)
 		api.POST("/signup", routes.SignupHandler)
+		api.Use(middleware.SessionMiddleware(db))
+		api.GET("/user", func(c echo.Context) error {
+			user := c.Get("user").(*models.User)
+			message := fmt.Sprintf("You are %s", user.ID)
+			return c.JSON(http.StatusOK, map[string]string{"message": message})
+		})
 		api.GET("/hello", func(c echo.Context) error {
 			return c.JSON(http.StatusOK, map[string]string{"message": "Hello, World!!!"})
 		})

@@ -41,9 +41,10 @@ func LoginHandler(c echo.Context) error {
 	}
 
 	c.SetCookie(&http.Cookie{
-		Name:  "sessionToken",
-		Value: session.ID.String(),
-		Path:  "/",
+		Name:     "sessionToken",
+		Value:    session.ID.String(),
+		SameSite: http.SameSiteStrictMode,
+		Path:     "/",
 	})
 
 	return c.JSON(http.StatusOK, map[string]string{"message": "Login successful!"})
@@ -109,9 +110,10 @@ func SignupHandler(c echo.Context) error {
 	}
 
 	c.SetCookie(&http.Cookie{
-		Name:  "sessionToken",
-		Value: session.ID.String(),
-		Path:  "/",
+		Name:     "sessionToken",
+		Value:    session.ID.String(),
+		SameSite: http.SameSiteStrictMode,
+		Path:     "/",
 	})
 
 	return c.JSON(http.StatusOK, map[string]string{"message": "Signup successful!"})

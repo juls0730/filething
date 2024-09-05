@@ -4,8 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"filething/models"
+	"fmt"
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/uptrace/bun"
 )
@@ -36,17 +38,25 @@ func SessionMiddleware(db *bun.DB) echo.MiddlewareFunc {
 			sessionToken := cookie.Value
 
 			// Query the session and user data from PostgreSQL
-			session := new(models.Session)
-			err = db.NewSelect().Model(session).Relation("User").WherePK(sessionToken).Scan(context.Background())
+			sessionId, err := uuid.Parse(sessionToken)
+			if err != nil {
+				return echo.NewHTTPError(http.StatusBadRequest, "Bad request")
+			}
+
+			session := &models.Session{
+				ID: sessionId,
+			}
+			err = db.NewSelect().Model(session).Relation("User").WherePK().Scan(context.Background())
 
 			if err != nil {
+				fmt.Println(err)
 				if err == sql.ErrNoRows {
 					return echo.NewHTTPError(http.StatusUnauthorized, "Invalid session token")
 				}
 				return echo.NewHTTPError(http.StatusInternalServerError, "Database error")
 			}
 
-			user := session.User
+			user := &session.User
 
 			// Store the user in the context
 			c.Set(UserContextKey, user)
