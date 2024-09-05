@@ -5,33 +5,41 @@ if (useCookie("sessionToken").value) {
     await navigateTo('/')
 }
 
-let email = ref('')
+let username_or_email = ref('')
 let password = ref('')
 
+let error = ref('')
+
 const submitForm = async () => {
-    await useFetch('/api/login', {
+    let response = await useFetch('/api/login', {
         method: 'POST',
         body: {
-            "email": email.value,
+            "username_or_email": username_or_email.value,
             "password": password.value,
         }
     })
 
-    await navigateTo('/')
+    if (response.error.value != null) {
+        console.log(response)
+        error.value = response.error.value.data.message
+        setTimeout(() => error.value = "", 15000)
+    } else {
+        await navigateTo('/')
+    }
 }
 </script>
 
 <template>
-    <div class="min-h-screen min-w-screen grid place-content-center">
-        <div class="flex flex-col max-w-72 w-full text-center">
-            <input
-                class="py-2 px-4 resize-none rounded-md my-2 border-gray-200 dark:border-dark-gray-800 focus:border-gray-300 dark:focus:border-dark-gray-800 border focus:outline-none placeholder:italic placeholder:text-slate-500 dark:placeholder:text-gray-300"
-                v-model="email" type="email" placeholder="Email..." />
-            <input
-                class="py-2 px-4 resize-none rounded-md my-2 border-gray-200 dark:border-dark-gray-800 focus:border-gray-300 dark:focus:border-dark-gray-800 border focus:outline-none placeholder:italic placeholder:text-slate-500 dark:placeholder:text-gray-300"
-                v-model="password" type="password" placeholder="Password..." />
-            <button @click="submitForm" class="py-2 px-4 bg-blue-500 text-white rounded-md">Login</button>
-            <p>Or <NuxtLink to="/signup" class="text-pink-600">Sign up</NuxtLink>
+    <div class="min-h-screen min-w-screen grid place-content-center bg-base">
+        <div
+            class="flex flex-col text-center bg-surface border border-muted/20 shadow-md px-10 py-8 rounded-2xl min-w-0 max-w-[313px]">
+            <h2 class="font-semibold text-2xl mb-2">Login</h2>
+            <Input v-model="username_or_email" placeholder="Username or Email..." />
+            <Input v-model="password" type="password" placeholder="Password..." />
+            <p class="text-love">{{ error }}</p>
+            <button @click="submitForm"
+                class="py-2 px-4 my-2 bg-pine/10 text-pine rounded-md transition-colors hover:bg-pine/15 active:bg-pine/25">Login</button>
+            <p>Or <NuxtLink to="/signup" class="text-foam hover:underline">Sign up</NuxtLink>
             </p>
         </div>
     </div>

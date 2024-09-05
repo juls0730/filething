@@ -8,8 +8,24 @@ module.exports = {
     "./app.vue",
     "./error.vue",
   ],
+  darkMode: "selector",
   theme: {
-    extend: {},
+    extend: {
+      colors: {
+        base: "rgb(var(--color-base))",
+        surface: "rgb(var(--color-surface))",
+        overlay: "rgb(var(--color-overlay))",
+        muted: "rgb(var(--color-muted))",
+        subtle: "rgb(var(--color-subtle))",
+        text: "rgb(var(--color-text))",
+        foam: "rgb(var(--color-foam))",
+        love: "rgb(var(--color-love))",
+        pine: "rgb(var(--color-pine))",
+        "highlight-low": "rgb(var(--highlight-low))",
+        "highlight-med": "rgb(var(--highlight-med))",
+        "highlight-high": "rgb(var(--highlight-high))",
+      },
+    },
   },
   plugins: [],
 };

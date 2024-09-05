@@ -1,0 +1,6 @@
+# Filething
+
+**dependencies**:
+
+- bun
+- go

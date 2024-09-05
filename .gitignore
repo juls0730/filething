@@ -1,1 +1,4 @@
 filething
+
+# nuxt buildCache is bugged and weird on my setup
+node_modules

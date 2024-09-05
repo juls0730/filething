@@ -1,3 +1,47 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+    :root {
+        --color-base: 250 244 237;
+        --color-surface: 255 250 243;
+        --color-overlay: 242 233 225;
+        --color-muted: 152 147 165;
+        --color-subtle: 121 117 147;
+        --color-text: 87 82 121;
+        --highlight-low: 33 32 46;
+        --highlight-med: 64 61 82;
+        --highlight-high: 82 79 103;
+        --color-foam: 86 148 159;
+        --color-love: 180 99 122;
+        --color-pine: 40 105 131;
+    }
+}
+
+.dark {
+    --color-base: 25 23 36;
+    --color-surface: 31 29 46;
+    --color-overlay: 38 35 58;
+    --color-muted: 110 106 134;
+    --color-subtle: 144 140 170;
+    --color-text: 224 222 244;
+    --highlight-low: 244 237 232;
+    --highlight-med: 223 218 217;
+    --highlight-high: 206 202 205;
+    --color-foam: 156 207 216;
+    --color-love: 235 111 146;
+    --color-pine: 49 116 143;
+}
+
+body {
+    color: rgb(var(--color-text));
+}
+
+::selection {
+	background: rgb(var(--color-muted) / 0.2);
+}
+
+*:focus-visible {
+    outline: none;
+}

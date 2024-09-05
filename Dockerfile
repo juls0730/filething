@@ -4,9 +4,9 @@ WORKDIR /app
 
 COPY . /app
 
-RUN apk add npm
+RUN curl -fsSL https://bun.sh/install | bash
 
 RUN go generate
-RUN go build main.go
+RUN go build -o filething main.go 
 
-ENTRYPOINT main.go
+ENTRYPOINT ["./filething"]
