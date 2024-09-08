@@ -12,6 +12,6 @@ function updateValue(value) {
 
 <template>
     <input
-        class="py-2 px-4 resize-none bg-overlay rounded-md my-2 border border-muted/20 hover:border-muted/40 focus:border-muted/60 placeholder:italic placeholder:text-subtle transition-[border-color] max-w-64"
+        class="py-2 px-4 resize-none bg-overlay rounded-md my-2 border hover:border-muted/40 focus:border-muted/60 placeholder:italic placeholder:text-subtle transition-[border-color] max-w-64"
         :placeholder="placeholder" :type="type" v-on:input="updateValue($event.target.value)" />
 </template>

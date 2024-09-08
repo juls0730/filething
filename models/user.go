@@ -17,16 +17,24 @@ type SignupData struct {
 }
 
 type User struct {
-	bun.BaseModel `bun:"table:users,alias:u"`
-	ID            uuid.UUID `bun:",pk,type:uuid,default:uuid_generate_v4()"`
-	Username      string    `bun:"username,notnull,unique"`
-	Email         string    `bun:"email,notnull,unique"`
-	PasswordHash  string    `bun:"passwordHash,notnull"`
+	bun.BaseModel `bun:"table:users"`
+	ID            uuid.UUID `bun:"id,pk,type:uuid,default:uuid_generate_v4()" json:"id"`
+	Username      string    `bun:"username,notnull,unique" json:"username"`
+	Email         string    `bun:"email,notnull,unique" json:"email"`
+	PasswordHash  string    `bun:"passwordHash,notnull" json:"-"`
+	PlanID        int64     `bun:"plan_id,notnull" json:"-"`
+	Plan          Plan      `bun:"rel:belongs-to,join:plan_id=id" json:"plan"`
 }
 
 type Session struct {
-	bun.BaseModel `bun:"table:sessions,alias:u"`
-	ID            uuid.UUID `bun:",pk,type:uuid,default:uuid_generate_v4()"`
+	bun.BaseModel `bun:"table:sessions"`
+	ID            uuid.UUID `bun:"id,pk,type:uuid,default:uuid_generate_v4()"`
 	UserID        uuid.UUID `bun:"user_id,notnull,type:uuid"`
 	User          User      `bun:"rel:belongs-to,join:user_id=id"`
+}
+
+type Plan struct {
+	bun.BaseModel `bun:"table:plans"`
+	ID            int64 `bun:"id,pk,autoincrement" json:"id"`
+	MaxStorage    int64 `bun:"max_storage,notnull" json:"max_storage"`
 }

@@ -25,6 +25,9 @@ module.exports = {
         "highlight-med": "rgb(var(--highlight-med))",
         "highlight-high": "rgb(var(--highlight-high))",
       },
+      transitionProperty: {
+        bg: "background-color",
+      },
     },
   },
   plugins: [],

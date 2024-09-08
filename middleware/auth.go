@@ -12,15 +12,6 @@ import (
 	"github.com/uptrace/bun"
 )
 
-// import (
-// 	"database/sql"
-// 	"net/http"
-
-// 	"github.com/go-pg/pg/v10"
-
-// 	"github.com/labstack/echo/v4"
-// )
-
 const UserContextKey = "user"
 
 func SessionMiddleware(db *bun.DB) echo.MiddlewareFunc {
@@ -46,7 +37,7 @@ func SessionMiddleware(db *bun.DB) echo.MiddlewareFunc {
 			session := &models.Session{
 				ID: sessionId,
 			}
-			err = db.NewSelect().Model(session).Relation("User").WherePK().Scan(context.Background())
+			err = db.NewSelect().Model(session).WherePK().Scan(context.Background())
 
 			if err != nil {
 				fmt.Println(err)
@@ -56,7 +47,18 @@ func SessionMiddleware(db *bun.DB) echo.MiddlewareFunc {
 				return echo.NewHTTPError(http.StatusInternalServerError, "Database error")
 			}
 
-			user := &session.User
+			user := &models.User{
+				ID: session.UserID,
+			}
+			err = db.NewSelect().Model(user).Relation("Plan").WherePK().Scan(context.Background())
+
+			if err != nil {
+				if err == sql.ErrNoRows {
+					return echo.NewHTTPError(http.StatusUnauthorized, "Invalid session token")
+				}
+				fmt.Println(err)
+				return echo.NewHTTPError(http.StatusInternalServerError, "Database error")
+			}
 
 			// Store the user in the context
 			c.Set(UserContextKey, user)

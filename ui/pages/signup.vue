@@ -1,9 +1,10 @@
-<script setup>
-console.log(useCookie("sessionToken").value)
+<script lang="ts" setup>
+import type { User } from '~/types/user'
+const { fetchUser } = useUser()
 
-if (useCookie("sessionToken").value) {
-    await navigateTo('/')
-}
+definePageMeta({
+    middleware: "unauth"
+});
 
 let username = ref('')
 let email = ref('')
@@ -12,7 +13,7 @@ let password = ref('')
 let error = ref('')
 
 const submitForm = async () => {
-    const response = await useFetch('/api/signup', {
+    const response = await useFetch<User>('/api/signup', {
         method: 'POST',
         body: {
             "username": username.value,
@@ -26,7 +27,8 @@ const submitForm = async () => {
         error.value = response.error.value.data.message
         setTimeout(() => error.value = "", 15000)
     } else {
-        await navigateTo('/')
+        await fetchUser()
+        await navigateTo('/home')
     }
 }
 </script>

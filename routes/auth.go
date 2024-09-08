@@ -3,8 +3,11 @@ package routes
 import (
 	"context"
 	"filething/models"
+	"fmt"
 	"net/http"
+	"os"
 	"regexp"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -40,33 +43,17 @@ func LoginHandler(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "An unknown error occoured!"})
 	}
 
+	expiration := time.Now().Add(time.Hour * 24 * 365 * 100)
+
 	c.SetCookie(&http.Cookie{
 		Name:     "sessionToken",
 		Value:    session.ID.String(),
 		SameSite: http.SameSiteStrictMode,
+		Expires:  expiration,
 		Path:     "/",
 	})
 
 	return c.JSON(http.StatusOK, map[string]string{"message": "Login successful!"})
-
-	// sessionID := uuid.New().String()
-	// session := &models.Session{ID: sessionID, UserID: user.ID, ExpiresAt: time.Now().Add(time.Hour * 24)}
-
-	// key := "session:" + session.ID
-	// err = client.HSet(ctx, key, session).Err()
-
-	// if err != nil {
-	// 	c.JSON(http.StatusInternalServerError, gin.H{"message": "An unknown error occoured!"})
-	// 	return
-	// }
-
-	// http.SetCookie(c.Writer, &http.Cookie{
-	// 	Name:  "sessionToken",
-	// 	Value: sessionID,
-	// 	Path:  "/",
-	// })
-
-	// c.JSON(http.StatusOK, gin.H{"message": "Login successful"})
 }
 
 func SignupHandler(c echo.Context) error {
@@ -96,11 +83,22 @@ func SignupHandler(c echo.Context) error {
 		Username:     signupData.Username,
 		Email:        signupData.Email,
 		PasswordHash: string(hash),
+		PlanID:       1, // basic 10GB plan
 	}
 	_, err = db.NewInsert().Model(user).Exec(context.Background())
 
 	if err != nil {
 		return c.JSON(http.StatusConflict, map[string]string{"message": "A user with that email or username already exists!"})
+	}
+
+	err = os.Mkdir(fmt.Sprintf("%s/%s", os.Getenv("STORAGE_PATH"), user.ID), os.ModePerm)
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "An unknown error occoured!"})
 	}
 
 	session, err := GenerateSessionToken(db, user.ID)
@@ -109,22 +107,17 @@ func SignupHandler(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "An unknown error occoured!"})
 	}
 
+	expiration := time.Now().Add(time.Hour * 24 * 365 * 100)
+
 	c.SetCookie(&http.Cookie{
 		Name:     "sessionToken",
 		Value:    session.ID.String(),
 		SameSite: http.SameSiteStrictMode,
+		Expires:  expiration,
 		Path:     "/",
 	})
 
 	return c.JSON(http.StatusOK, map[string]string{"message": "Signup successful!"})
-
-	// http.SetCookie(c.Writer, &http.Cookie{
-	// 	Name:  "sessionToken",
-	// 	Value: sessionID,
-	// 	Path:  "/",
-	// })
-
-	// c.JSON(http.StatusOK, gin.H{"message": "Signup successful"})
 }
 
 func GenerateSessionToken(db *bun.DB, userId uuid.UUID) (*models.Session, error) {
@@ -135,4 +128,13 @@ func GenerateSessionToken(db *bun.DB, userId uuid.UUID) (*models.Session, error)
 	_, err := db.NewInsert().Model(session).Exec(context.Background())
 
 	return session, err
+}
+
+func GetUser(c echo.Context) error {
+	user := c.Get("user")
+	if user == nil {
+		return c.JSON(http.StatusNotFound, map[string]string{"message": "User not found"})
+	}
+
+	return c.JSON(http.StatusOK, user.(*models.User))
 }

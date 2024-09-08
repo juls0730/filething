@@ -4,37 +4,47 @@
 
 @layer base {
     :root {
-        --color-base: 250 244 237;
-        --color-surface: 255 250 243;
-        --color-overlay: 242 233 225;
-        --color-muted: 152 147 165;
-        --color-subtle: 121 117 147;
-        --color-text: 87 82 121;
-        --highlight-low: 33 32 46;
-        --highlight-med: 64 61 82;
-        --highlight-high: 82 79 103;
+        --color-base: 239 237 242;
+        --color-surface: 247 246 249;
+        --color-overlay: 242 240 245;
+        --color-muted: 146 142 175;
+        --color-subtle: 139 136 160;
+        --color-text: 14 13 17;
+        --highlight-low: 11 18 22;
+        --highlight-med: 32 37 38;
+        --highlight-high: 49 55 58;
         --color-foam: 86 148 159;
-        --color-love: 180 99 122;
+        --color-love: 220 100 130;
         --color-pine: 40 105 131;
+
+        --nav-height: 48px;
     }
 }
 
 .dark {
-    --color-base: 25 23 36;
-    --color-surface: 31 29 46;
-    --color-overlay: 38 35 58;
-    --color-muted: 110 106 134;
-    --color-subtle: 144 140 170;
-    --color-text: 224 222 244;
+    --color-base: 14 13 17;
+    --color-surface: 21 18 28;
+    --color-overlay: 30 26 40;
+    --color-muted: 99 92 117;
+    --color-subtle: 152 146 171;
+    --color-text: 247 246 249;
     --highlight-low: 244 237 232;
     --highlight-med: 223 218 217;
     --highlight-high: 206 202 205;
     --color-foam: 156 207 216;
     --color-love: 235 111 146;
     --color-pine: 49 116 143;
+
+    color-scheme: dark;
+}
+
+*, ::before, ::after {
+    border-color: rgb(var(--color-muted) / 0.2);
+    @apply ease-[cubic-bezier(0.25,_1,_0.5,_1)];
 }
 
 body {
+    background-color: rgb(var(--color-base));
     color: rgb(var(--color-text));
 }
 

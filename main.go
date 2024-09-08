@@ -1,5 +1,5 @@
 //go:generate bun --cwd=./ui install
-//go:generate bun --cwd=./ui run generate
+//go:generate bun --bun --cwd=./ui run generate
 package main
 
 import (
@@ -10,6 +10,7 @@ import (
 	"filething/routes"
 	"filething/ui"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -27,7 +28,7 @@ func main() {
 	dbUser := os.Getenv("DB_USER")
 	dbPasswd := os.Getenv("DB_PASSWD")
 
-	if dbHost == "" || dbName == "" || dbUser == "" {
+	if dbHost == "" || dbName == "" || dbUser == "" || os.Getenv("STORAGE_PATH") == "" {
 		panic("Missing database environment variabled!")
 	}
 
@@ -37,6 +38,11 @@ func main() {
 	db := bun.NewDB(sqldb, pgdialect.New())
 
 	err := createSchema(db)
+	if err != nil {
+		panic(err)
+	}
+
+	err = seedPlans(db)
 	if err != nil {
 		panic(err)
 	}
@@ -64,16 +70,19 @@ func main() {
 	{
 		api.POST("/login", routes.LoginHandler)
 		api.POST("/signup", routes.SignupHandler)
+
+		// everything past this needs auth
 		api.Use(middleware.SessionMiddleware(db))
-		api.GET("/user", func(c echo.Context) error {
-			user := c.Get("user").(*models.User)
-			message := fmt.Sprintf("You are %s", user.ID)
-			return c.JSON(http.StatusOK, map[string]string{"message": message})
-		})
-		api.GET("/hello", func(c echo.Context) error {
-			return c.JSON(http.StatusOK, map[string]string{"message": "Hello, World!!!"})
-		})
+		api.GET("/user", routes.GetUser)
+		api.GET("/user/usage", routes.GetUsage)
+
+		api.POST("/upload*", routes.UploadFile)
+		api.GET("/files*", routes.GetFiles)
 	}
+
+	// redirects to the proper pages if you are trying to access one that expects you have/dont have an api key
+	// this isnt explicitly required, but it provides a better experience than doing this same thing clientside
+	e.Use(middleware.AuthCheckMiddleware)
 
 	e.GET("/*", echo.StaticDirectoryHandler(ui.DistDirFS, false))
 
@@ -83,8 +92,6 @@ func main() {
 }
 
 func customHTTPErrorHandler(err error, c echo.Context) {
-	c.Logger().Error(err)
-
 	if he, ok := err.(*echo.HTTPError); ok && he.Code == http.StatusNotFound {
 		path := c.Request().URL.Path
 
@@ -123,6 +130,7 @@ func createSchema(db *bun.DB) error {
 	models := []interface{}{
 		(*models.User)(nil),
 		(*models.Session)(nil),
+		(*models.Plan)(nil),
 	}
 
 	ctx := context.Background()
@@ -132,5 +140,32 @@ func createSchema(db *bun.DB) error {
 			return err
 		}
 	}
+	return nil
+}
+
+func seedPlans(db *bun.DB) error {
+	ctx := context.Background()
+	count, err := db.NewSelect().Model((*models.Plan)(nil)).Count(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to count plans: %w", err)
+	}
+
+	// If the table is not empty, no need to seed
+	if count > 0 {
+		return nil
+	}
+
+	plans := []models.Plan{
+		{MaxStorage: 10 * 1024 * 1024 * 1024},  // 10GB
+		{MaxStorage: 50 * 1024 * 1024 * 1024},  // 50GB
+		{MaxStorage: 100 * 1024 * 1024 * 1024}, // 100GB
+	}
+
+	_, err = db.NewInsert().Model(&plans).Exec(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to seed plans: %w", err)
+	}
+
+	log.Println("Successfully seeded the plans table")
 	return nil
 }
