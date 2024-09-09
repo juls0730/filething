@@ -25,9 +25,9 @@ const crumbs = computed(() => {
                 <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="m9 6l6 6l-6 6" />
             </svg>
-            <a class="hover:text-text" :class="index === crumbs.length - 1 ? 'text-foam' : 'text-subtle'"
-                :href="crumb.link">{{
-                    crumb.name }}</a>
+            <NuxtLink class="hover:text-text" :class="index === crumbs.length - 1 ? 'text-foam' : 'text-subtle'"
+                :to="crumb.link">{{
+                    crumb.name }}</NuxtLink>
         </span>
     </div>
 </template>

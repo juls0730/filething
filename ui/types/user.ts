@@ -5,7 +5,8 @@ export interface User {
     plan: {
         id: number,
         max_storage: number
-    }
+    },
+    usage: number,
 }
 
 export interface FileUpload {

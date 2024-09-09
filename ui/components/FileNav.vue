@@ -19,7 +19,6 @@ const percentage = computed(() => {
     return (props.usageBytes / capacityBytes.value);
 });
 
-console.log(percentage.value, props.usageBytes, capacityBytes.value)
 const offset = computed(() => {
     return circumference - percentage.value * circumference;
 });
@@ -29,10 +28,6 @@ const usage = computed(() => {
 const capacity = computed(() => {
     return formatBytes(capacityBytes.value)
 });
-
-if (props.usageBytes > capacityBytes.value) {
-    console.log("SCAN SCAN SCAM SCAM")
-}
 
 const isAllFilesActive = computed(() => route.path === '/home');
 

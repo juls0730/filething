@@ -23,7 +23,6 @@ const submitForm = async () => {
     })
 
     if (response.error.value != null) {
-        console.log(response)
         error.value = response.error.value.data.message
         setTimeout(() => error.value = "", 15000)
     } else {

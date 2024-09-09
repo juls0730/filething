@@ -9,12 +9,53 @@ definePageMeta({
 });
 
 const user = await getUser()
-
-let { data: usageBytes } = await useFetch<{ usage: number }>('/api/user/usage')
-let { data: files } = await useFetch<[File]>('/api/files')
-
 const route = useRoute();
+
+let { data: files } = await useFetch<[File]>('/api/files/get/' + route.path.replace(/^\/home/, ''))
+
+const sortedFiles = computed(() => {
+    files.value?.forEach(file => file.toggled === undefined ? file.toggled = 'unchecked' : {})
+
+    let folders = files.value?.filter(file => file.is_dir).sort((a, b) => {
+        return ('' + a.name).localeCompare(b.name);
+    });
+    let archives = files.value?.filter(file => !file.is_dir).sort((a, b) => {
+        return ('' + a.name).localeCompare(b.name);
+    });
+
+    return folders?.concat(archives)
+})
+
+let selectAll = ref('unchecked');
+let selectedFiles = computed(() => sortedFiles.value?.filter(file => file.toggled === 'checked'))
+
+watch(sortedFiles, (newVal, oldVal) => {
+    let checkedFilesLength = newVal?.filter(file => file.toggled === 'checked').length;
+    if (checkedFilesLength > 0) {
+        if (checkedFilesLength < newVal?.length) {
+            selectAll.value = 'some';
+        } else {
+            selectAll.value = 'checked';
+        }
+    } else {
+        selectAll.value = 'unchecked';
+    }
+})
+
+watch(selectAll, (newVal, oldVal) => {
+    if (newVal === 'some') {
+        return
+    }
+
+    sortedFiles.value?.forEach(file => {
+        file.toggled = newVal
+    })
+});
+
+let folderName = ref('');
 let folder = ref("");
+let folderError = ref('');
+let popupVisable = ref(false);
 let uploadPaneClosed = ref(true);
 
 if (typeof route.params.name == "object") {
@@ -67,7 +108,7 @@ const uploadFile = (file: File) => {
         uploadPaneClosed.value = false;
     }
 
-    xhr.open('POST', '/api/upload', true);
+    xhr.open('POST', '/api/files/upload/' + route.path.replace(/^\/home/, ''), true);
 
     xhr.upload.onprogress = (event) => {
         if (event.lengthComputable) {
@@ -94,16 +135,16 @@ const uploadFile = (file: File) => {
     };
 
     xhr.onload = () => {
-        let data = JSON.parse(xhr.response)
-        usageBytes.value.usage = data.usage
-        files.value?.push(data.file)
-
         let file = uploadingFiles.value.find(upload => upload.id === id);
         if (!file) {
             throw new Error("Upload has finished but file is missing!")
         }
 
         if (xhr.status >= 200 && xhr.status < 300) {
+            let data = JSON.parse(xhr.response)
+            user.usage = data.usage
+            files.value?.push(data.file)
+
             file.uploading = false;
 
             file.status = {
@@ -165,15 +206,59 @@ const uploadFile = (file: File) => {
 const openFilePicker = () => {
     fileInput.value?.click();
 }
+
+const createFolder = async () => {
+    let { data, error } = await useFetch('/api/files/upload/' + route.path.replace(/^\/home/, '') + '/' + folderName.value, {
+        method: "POST"
+    })
+
+    if (error.value != null) {
+        folderError.value = error.value.data.message;
+    } else {
+        user.usage = data.value.usage
+        files.value?.push(data.value.file)
+
+        popupVisable.value = false;
+        navigateTo(route.path + '/' + folderName.value);
+    }
+}
+
+const deleteFiles = async () => {
+    await useFetch('/api/files/delete' + route.path.replace(/^\/home/, ''), {
+        method: "POST",
+        body: {
+            files: selectedFiles.value?.map(file => ({ name: file.name }))
+        }
+    })
+
+    files.value = files.value?.filter(file => !selectedFiles.value?.includes(file))
+}
 </script>
 
 <template>
     <div class="flex relative min-h-[100dvh]">
         <div class="fixed md:relative -translate-x-full md:translate-x-0">
-            <FileNav :usageBytes="usageBytes?.usage" />
+            <FileNav :usageBytes="user.usage" />
         </div>
         <UploadPane :closed="uploadPaneClosed" v-on:update:closed="(newValue) => uploadPaneClosed = newValue"
             :uploadingFiles="uploadingFiles" />
+        <Popup v-model="popupVisable" header="New Folder">
+            <div class="flex flex-col p-2">
+                <div class="mb-3 flex flex-col">
+                    <label for="folderNameInput" class="text-sm">name</label>
+                    <Input id="folderNameInput" v-model="folderName" placeholder="Folder name" />
+                    <p class="text-love">{{ folderError }}</p>
+                </div>
+                <div class="ml-auto flex gap-x-1.5">
+                    <button v-on:click="popupVisable = !popupVisable"
+                        class=" px-2 py-1 rounded-md text-sm border bg-muted/10 hover:bg-muted/15 active:bg-muted/25">Close</button>
+                    <button v-on:click="createFolder" :disabled="folderName === ''"
+                        class=" px-2 py-1 rounded-md text-sm
+                        disabled:bg-highlight-med/50 bg-highlight-med hover:brightness-105 active:brightness-110 transition-[background-color,filter] text-surface disabled:cursor-not-allowed">Confirm</button>
+                </div>
+            </div>
+        </Popup>
+
         <div class="w-full">
             <Nav />
             <div class="pt-6 pl-12 overflow-auto max-h-[calc(100vh-var(--nav-height))]">
@@ -191,7 +276,7 @@ const openFilePicker = () => {
                             </svg>
                             Upload
                         </button>
-                        <button
+                        <button v-on:click="popupVisable = !popupVisable"
                             class="rounded-xl border-2 border-surface flex flex-col gap-y-2 px-2 py-3 w-40 justify-center items-center hover:bg-muted/10 active:bg-muted/20 transition-bg">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
                                 <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
@@ -208,36 +293,56 @@ const openFilePicker = () => {
                         <h3 class="font-semibold text-xl">
                             <Breadcrumbs :path="route.path" />
                         </h3>
-                        <table class="w-full text-sm mt-2">
+                        <div class="mt-2">
+                            <div v-if="selectedFiles?.length > 0">
+                                <button v-on:click="deleteFiles"
+                                    class="flex flex-row px-2 py-1 rounded-md transition-bg text-xs border hover:bg-love/10 active:bg-love/20 hover:text-love active:text-love items-center">
+                                    <svg class="mr-1" xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+                                        viewBox="0 0 24 24">
+                                        <path fill="none" stroke="currentColor" stroke-linecap="round"
+                                            stroke-linejoin="round" stroke-width="2"
+                                            d="M4 7h16M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3m-5 5l4 4m0-4l-4 4" />
+                                    </svg>
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                        <table class="w-full text-sm mt-2 table-fixed">
                             <thead class="border-b">
                                 <tr class="flex flex-row h-10 group pl-[30px] -ml-7 relative items-center">
                                     <th class="left-0 absolute">
                                         <div>
-                                            <input class="w-4 h-4 hidden group-hover:block" type="checkbox" />
+                                            <Checkbox :class="{ 'hidden': selectAll === 'unchecked' }"
+                                                v-model="selectAll" class="group-hover:flex" type="checkbox" />
                                         </div>
                                     </th>
-                                    <th class="flex-grow text-start">
+                                    <th v-on:click="selectAll === 'unchecked' ? selectAll = 'checked' : selectAll = 'unchecked'"
+                                        class="flex-grow min-w-40 text-start flex items-center h-full">
                                         Name
                                     </th>
-                                    <th class="min-w-40 text-start">
+                                    <th class="min-w-32 text-start">
                                         Size
                                     </th>
-                                    <th class="min-w-40 text-start sm:block hidden">
-                                        Last modified
+                                    <th class="min-w-28 text-start sm:block hidden">
+                                        Modified
                                     </th>
                                 </tr>
                             </thead>
                             <tbody class="block">
                                 <tr class="flex flex-row h-10 group items-center border-b hover:bg-muted/10 transition-bg"
-                                    v-for="file in files">
-                                    <td class="-ml-7 pr-3.5">
-                                        <div class="w-4 h-4">
-                                            <input class="w-4 h-4 hidden group-hover:block" type="checkbox" />
+                                    v-for="file in sortedFiles">
+                                    <td class="-ml-7 pr-4 flex-shrink-0">
+                                        <div class="w-5 h-5">
+                                            <Checkbox class="group-hover:flex"
+                                                :class="{ 'hidden': file.toggled === 'unchecked' }"
+                                                v-model="file.toggled" />
                                         </div>
                                     </td>
-                                    <td class="flex-grow text-start">
-                                        <div class="flex items-center">
-                                            <svg class="mr-2" xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+                                    <td v-on:click="file.toggled === 'unchecked' ? file.toggled = 'checked' : file.toggled = 'unchecked'"
+                                        class="flex-grow text-start flex items-center h-full min-w-40">
+                                        <div class="flex items-center min-w-40">
+                                            <svg v-if="!file.is_dir" class="mr-2 flex-shrink-0"
+                                                xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                                 viewBox="0 0 24 24">
                                                 <g fill="none" stroke="currentColor" stroke-linecap="round"
                                                     stroke-linejoin="round" stroke-width="2">
@@ -246,13 +351,24 @@ const openFilePicker = () => {
                                                         d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2M9 9h1m-1 4h6m-6 4h6" />
                                                 </g>
                                             </svg>
-                                            {{ file.name }}
+                                            <svg v-else class="mr-2 flex-shrink-0" xmlns="http://www.w3.org/2000/svg"
+                                                width="16" height="16" viewBox="0 0 24 24">
+                                                <path fill="none" stroke="currentColor" stroke-linecap="round"
+                                                    stroke-linejoin="round" stroke-width="2"
+                                                    d="M5 4h4l3 3h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2" />
+                                            </svg>
+                                            <span class="overflow-hidden whitespace-nowrap text-ellipsis">
+                                                <NuxtLink v-if="file.is_dir" :to="`${route.path}/${file.name}`">
+                                                    {{ file.name }}
+                                                </NuxtLink>
+                                                <span v-else>{{ file.name }}</span>
+                                            </span>
                                         </div>
                                     </td>
-                                    <td class="min-w-40 text-start">
+                                    <td class="min-w-32 text-start">
                                         {{ formatBytes(file.size) }}
                                     </td>
-                                    <td class="min-w-40 text-start sm:block hidden">
+                                    <td class="min-w-28 text-start sm:block hidden">
                                         {{ file.last_modified }}
                                     </td>
                                 </tr>
@@ -264,3 +380,12 @@ const openFilePicker = () => {
         </div>
     </div>
 </template>
+
+<style>
+td,
+th {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+</style>

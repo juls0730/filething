@@ -74,10 +74,11 @@ func main() {
 		// everything past this needs auth
 		api.Use(middleware.SessionMiddleware(db))
 		api.GET("/user", routes.GetUser)
-		api.GET("/user/usage", routes.GetUsage)
 
-		api.POST("/upload*", routes.UploadFile)
-		api.GET("/files*", routes.GetFiles)
+		api.POST("/files/upload*", routes.UploadFile)
+		api.GET("/files/get/*", routes.GetFiles)
+		api.GET("/files/download/*", routes.GetFile)
+		api.POST("/files/delete*", routes.DeleteFiles)
 	}
 
 	// redirects to the proper pages if you are trying to access one that expects you have/dont have an api key

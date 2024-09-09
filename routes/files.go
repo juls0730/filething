@@ -23,19 +23,61 @@ func UploadFile(c echo.Context) error {
 	fullPath := strings.Trim(c.Param("*"), "/")
 	basePath := fmt.Sprintf("%s/%s/%s/", os.Getenv("STORAGE_PATH"), user.ID, fullPath)
 
-	currentUsage, err := calculateStorageUsage(basePath)
+	currentUsage, err := calculateStorageUsage(fmt.Sprintf("%s/%s", os.Getenv("STORAGE_PATH"), user.ID))
 	if err != nil {
 		fmt.Println(err)
 		return err
 	}
 
+	_, err = os.Stat(basePath)
+	directoryExists := err == nil
+
+	// Create the directories if they don't exist
+	if !directoryExists {
+		err = os.MkdirAll(basePath, os.ModePerm)
+		if err != nil {
+			fmt.Println(err)
+			return err
+		}
+	}
+
 	reader, err := c.Request().MultipartReader()
 	if err != nil {
+		if err == http.ErrNotMultipart {
+			if directoryExists {
+				// Directories exist, but no file was uploaded
+				return c.JSON(http.StatusBadRequest, map[string]string{"message": "A folder with that name already exists"})
+			}
+			// Directories were just created, and no file was provided
+			entry, err := os.Stat(basePath)
+
+			if err != nil {
+				fmt.Println(err)
+				return err
+			}
+
+			uploadFile := &UploadResponse{
+				Usage: currentUsage + entry.Size(),
+				File: File{
+					Name:         entry.Name(),
+					IsDir:        entry.IsDir(),
+					Size:         entry.Size(),
+					LastModified: entry.ModTime().Format("1/2/2006"),
+				},
+			}
+
+			return c.JSON(http.StatusOK, uploadFile)
+		}
 		fmt.Println(err)
 		return err
 	}
 
 	part, err := reader.NextPart()
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+
 	if err != nil {
 		fmt.Println(err)
 		return err
@@ -173,22 +215,58 @@ func GetFiles(c echo.Context) error {
 			Name:         f.Name(),
 			IsDir:        f.IsDir(),
 			Size:         f.Size(),
-			LastModified: f.ModTime().Format("1/2/2006"),
+			LastModified: f.ModTime().Format("2 Jan 06"),
 		})
 	}
 
 	return c.JSON(http.StatusOK, jsonFiles)
 }
 
-func GetUsage(c echo.Context) error {
+func GetFile(c echo.Context) error {
 	user := c.Get("user").(*models.User)
 
 	fullPath := strings.Trim(c.Param("*"), "/")
-	basePath := fmt.Sprintf("%s/%s/%s/", os.Getenv("STORAGE_PATH"), user.ID, fullPath)
-	storageUsage, err := calculateStorageUsage(basePath)
-	if err != nil {
-		return err
+	basePath := fmt.Sprintf("%s/%s/%s", os.Getenv("STORAGE_PATH"), user.ID, fullPath)
+
+	return c.File(basePath)
+}
+
+type DeleteRequest struct {
+	Files []File `json:"files"`
+}
+
+func DeleteFiles(c echo.Context) error {
+	var deleteData DeleteRequest
+
+	if err := c.Bind(&deleteData); err != nil {
+		fmt.Println(err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "An unknown error occoured!"})
 	}
 
-	return c.JSON(http.StatusOK, map[string]int64{"usage": storageUsage})
+	if len(deleteData.Files) == 0 {
+		return c.JSON(http.StatusBadRequest, map[string]string{"message": "Files are required!"})
+	}
+
+	user := c.Get("user").(*models.User)
+
+	fullPath := strings.Trim(c.Param("*"), "/")
+	basePath := fmt.Sprintf("%s/%s/%s", os.Getenv("STORAGE_PATH"), user.ID, fullPath)
+
+	for _, file := range deleteData.Files {
+		path := filepath.Join(basePath, file.Name)
+		err := os.RemoveAll(path)
+		if err != nil {
+			fmt.Println(err)
+			return c.JSON(http.StatusInternalServerError, map[string]string{"message": "An unknown error occoured!"})
+		}
+	}
+
+	word := "file"
+	fileLen := len(deleteData.Files)
+
+	if fileLen != 1 {
+		word = word + "s"
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{"message": fmt.Sprintf("Successfully deleted %d %s", fileLen, word)})
 }

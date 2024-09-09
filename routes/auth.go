@@ -136,5 +136,13 @@ func GetUser(c echo.Context) error {
 		return c.JSON(http.StatusNotFound, map[string]string{"message": "User not found"})
 	}
 
+	basePath := fmt.Sprintf("%s/%s/", os.Getenv("STORAGE_PATH"), user.(*models.User).ID)
+	storageUsage, err := calculateStorageUsage(basePath)
+	if err != nil {
+		return err
+	}
+
+	user.(*models.User).Usage = storageUsage
+
 	return c.JSON(http.StatusOK, user.(*models.User))
 }

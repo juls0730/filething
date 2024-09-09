@@ -24,6 +24,7 @@ type User struct {
 	PasswordHash  string    `bun:"passwordHash,notnull" json:"-"`
 	PlanID        int64     `bun:"plan_id,notnull" json:"-"`
 	Plan          Plan      `bun:"rel:belongs-to,join:plan_id=id" json:"plan"`
+	Usage         int64     `bun:"-" json:"usage"`
 }
 
 type Session struct {

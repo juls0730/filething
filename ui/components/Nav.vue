@@ -18,7 +18,7 @@ const changeTheme = () => {
 </script>
 
 <template>
-    <header class="flex h-[var(--nav-height)] px-4 justify-center sticky top-0 z-50 border-b bg-base">
+    <header class="flex h-[var(--nav-height)] px-4 justify-center sticky top-0 z-20 border-b bg-base">
         <div class="flex w-full items-center justify-between space-x-2.5">
             <p
                 class="-ml-2.5 flex shrink-0 items-center px-2.5 py-1.5 focus:outline-none focus:ring rounded-m font-semiboldd">
