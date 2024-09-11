@@ -1,10 +1,13 @@
 package routes
 
 import (
+	"archive/zip"
+	"bytes"
 	"filething/models"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -73,11 +76,6 @@ func UploadFile(c echo.Context) error {
 	}
 
 	part, err := reader.NextPart()
-	if err != nil {
-		fmt.Println(err)
-		return err
-	}
-
 	if err != nil {
 		fmt.Println(err)
 		return err
@@ -152,14 +150,11 @@ func UploadFile(c echo.Context) error {
 
 func calculateStorageUsage(basePath string) (int64, error) {
 	var totalSize int64
-
-	// Read the directory
 	entries, err := os.ReadDir(basePath)
 	if err != nil {
 		return 0, err
 	}
 
-	// Iterate over directory entries
 	for _, entry := range entries {
 		if entry.IsDir() {
 			// Recursively calculate size of directories
@@ -226,9 +221,122 @@ func GetFile(c echo.Context) error {
 	user := c.Get("user").(*models.User)
 
 	fullPath := strings.Trim(c.Param("*"), "/")
-	basePath := fmt.Sprintf("%s/%s/%s", os.Getenv("STORAGE_PATH"), user.ID, fullPath)
 
-	return c.File(basePath)
+	fileNamesParam := c.QueryParam("filenames")
+	var fileNames []string
+	if fileNamesParam != "" {
+		fileNames = strings.Split(fileNamesParam, ",")
+	}
+
+	if fullPath == "" && len(fileNames) == 0 {
+		return c.JSON(http.StatusBadRequest, map[string]string{"message": "A file is required"})
+	}
+
+	basePath := fmt.Sprintf("%s/%s", os.Getenv("STORAGE_PATH"), user.ID)
+	if fullPath != "" {
+		basePath = filepath.Join(basePath, fullPath)
+	}
+
+	fileInfo, err := os.Stat(basePath)
+	if err != nil {
+		return c.JSON(http.StatusNotFound, map[string]string{"message": "No file found!"})
+	}
+
+	var buf bytes.Buffer
+	if fileInfo.IsDir() {
+		c.Response().Header().Set(echo.HeaderContentType, "application/zip")
+
+		if len(fileNames) != 0 {
+			err := zipFiles(&buf, filepath.Join(basePath, fullPath), fileNames)
+			if err != nil {
+				fmt.Println(err)
+				return err
+			}
+
+			_, err = buf.WriteTo(c.Response().Writer)
+			return err
+		}
+
+		err := zipFiles(&buf, basePath, []string{""})
+		if err != nil {
+			fmt.Println(err)
+			return err
+		}
+
+		_, err = buf.WriteTo(c.Response().Writer)
+		return err
+	} else {
+		return c.File(basePath)
+	}
+}
+
+func zipFiles(buf *bytes.Buffer, basePath string, files []string) error {
+	zipWriter := zip.NewWriter(buf)
+	defer zipWriter.Close()
+
+	for _, filePath := range files {
+		unescapedFilePath, err := url.PathUnescape(filePath)
+		if err != nil {
+			return err
+		}
+		err = processFile(zipWriter, basePath, unescapedFilePath)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func processFile(zipWriter *zip.Writer, basePath string, filePath string) error {
+	fullFilePath := filepath.Join(basePath, filePath)
+
+	fileInfo, err := os.Stat(fullFilePath)
+	if err != nil {
+		return err
+	}
+
+	header, err := zip.FileInfoHeader(fileInfo)
+	if err != nil {
+		return err
+	}
+
+	header.Method = zip.Deflate
+
+	header.Name = filepath.ToSlash(filePath)
+
+	if fileInfo.IsDir() {
+		header.Name += "/"
+	}
+
+	headerWriter, err := zipWriter.CreateHeader(header)
+	if err != nil {
+		return err
+	}
+
+	if fileInfo.IsDir() {
+		files, err := os.ReadDir(fullFilePath)
+		if err != nil {
+			return err
+		}
+
+		for _, file := range files {
+			err := processFile(zipWriter, basePath, filepath.Join(filePath, file.Name()))
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	file, err := os.Open(fullFilePath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	_, err = io.Copy(headerWriter, file)
+	return err
 }
 
 type DeleteRequest struct {

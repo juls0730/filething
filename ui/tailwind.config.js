@@ -21,6 +21,7 @@ module.exports = {
         foam: "rgb(var(--color-foam))",
         love: "rgb(var(--color-love))",
         pine: "rgb(var(--color-pine))",
+        accent: "rgb(var(--color-accent))",
         "highlight-low": "rgb(var(--highlight-low))",
         "highlight-med": "rgb(var(--highlight-med))",
         "highlight-high": "rgb(var(--highlight-high))",
@@ -29,6 +30,9 @@ module.exports = {
         bg: "background-color",
       },
     },
+  },
+  future: {
+    hoverOnlyWhenSupported: true,
   },
   plugins: [],
 };

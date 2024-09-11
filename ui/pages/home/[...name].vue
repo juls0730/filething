@@ -208,9 +208,14 @@ const openFilePicker = () => {
 }
 
 const createFolder = async () => {
-    let { data, error } = await useFetch('/api/files/upload/' + route.path.replace(/^\/home/, '') + '/' + folderName.value, {
-        method: "POST"
-    })
+    const { data, error } = await useAsyncData(
+        () => $fetch('/api/files/upload' + route.path.replace(/^\/home/, '') + '/' + folderName.value, {
+            method: "POST",
+            body: {
+                files: selectedFiles.value?.map(file => ({ name: file.name }))
+            }
+        })
+    )
 
     if (error.value != null) {
         folderError.value = error.value.data.message;
@@ -224,7 +229,7 @@ const createFolder = async () => {
 }
 
 const deleteFiles = async () => {
-    await useFetch('/api/files/delete' + route.path.replace(/^\/home/, ''), {
+    await $fetch('/api/files/delete' + route.path.replace(/^\/home/, ''), {
         method: "POST",
         body: {
             files: selectedFiles.value?.map(file => ({ name: file.name }))
@@ -232,6 +237,47 @@ const deleteFiles = async () => {
     })
 
     files.value = files.value?.filter(file => !selectedFiles.value?.includes(file))
+}
+
+const downloadFile = (file) => {
+    const anchor = document.createElement('a');
+    anchor.href = '/api/files/download/' + file.name;
+    anchor.download = file.name;
+
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+}
+
+const downloadFiles = async () => {
+    let filenames = ""
+
+    selectedFiles.value?.forEach((file, i) => {
+        filenames += encodeURIComponent(file.name)
+        if (i != selectedFiles.value?.length - 1) {
+            filenames += ",";
+        }
+    })
+
+    let { data, error } = await useAsyncData(
+        () => $fetch('/api/files/download', {
+            params: {
+                "filenames": filenames
+            }
+        })
+    )
+
+    console.log("DATA", data.value)
+
+    if (error.value == null) {
+        const anchor = document.createElement('a');
+        anchor.href = window.URL.createObjectURL(data.value)
+        anchor.download = "filething.zip";
+
+        document.body.appendChild(anchor);
+        anchor.click();
+        document.body.removeChild(anchor);
+    }
 }
 </script>
 
@@ -251,10 +297,10 @@ const deleteFiles = async () => {
                 </div>
                 <div class="ml-auto flex gap-x-1.5">
                     <button v-on:click="popupVisable = !popupVisable"
-                        class=" px-2 py-1 rounded-md text-sm border bg-muted/10 hover:bg-muted/15 active:bg-muted/25">Close</button>
+                        class=" px-2 py-1 rounded-md text-sm border bg-muted/10 hover:bg-muted/15 active:bg-muted/25 transition-bg">Close</button>
                     <button v-on:click="createFolder" :disabled="folderName === ''"
                         class=" px-2 py-1 rounded-md text-sm
-                        disabled:bg-highlight-med/50 bg-highlight-med hover:brightness-105 active:brightness-110 transition-[background-color,filter] text-surface disabled:cursor-not-allowed">Confirm</button>
+                        disabled:bg-highlight-med/50 bg-highlight-med not:hover:brightness-105 not:active:brightness-110 transition-[background-color,filter] text-surface disabled:cursor-not-allowed">Confirm</button>
                 </div>
             </div>
         </Popup>
@@ -271,7 +317,7 @@ const deleteFiles = async () => {
                                 <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
                                     stroke-width="2">
                                     <path d="M7 18a4.6 4.4 0 0 1 0-9a5 4.5 0 0 1 11 2h1a3.5 3.5 0 0 1 0 7h-1" />
-                                    <path d="m9 15l3-3l3 3m-3-3v9" />
+                                    <path stroke="rgb(var(--color-accent))" d="m9 15l3-3l3 3m-3-3v9" />
                                 </g>
                             </svg>
                             Upload
@@ -279,9 +325,11 @@ const deleteFiles = async () => {
                         <button v-on:click="popupVisable = !popupVisable"
                             class="rounded-xl border-2 border-surface flex flex-col gap-y-2 px-2 py-3 w-40 justify-center items-center hover:bg-muted/10 active:bg-muted/20 transition-bg">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-                                <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M12 19H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h4l3 3h7a2 2 0 0 1 2 2v3.5M16 19h6m-3-3v6" />
+                                <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
+                                    stroke-width="2">
+                                    <path d="M12 19H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h4l3 3h7a2 2 0 0 1 2 2v3.5M16" />
+                                    <path stroke="rgb(var(--color-accent))" d="M16 19h6m-3-3v6" />
+                                </g>
                             </svg>
                             New folder
                         </button>
@@ -294,7 +342,16 @@ const deleteFiles = async () => {
                             <Breadcrumbs :path="route.path" />
                         </h3>
                         <div class="mt-2">
-                            <div v-if="selectedFiles?.length > 0">
+                            <div class="flex flex-row gap-x-2" v-if="selectedFiles?.length > 0">
+                                <button v-on:click="downloadFiles"
+                                    class="flex flex-row px-2 py-1 rounded-md transition-bg text-xs border hover:bg-muted/10 active:bg-muted/20 items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24">
+                                        <path fill="none" stroke="currentColor" stroke-linecap="round"
+                                            stroke-linejoin="round" stroke-width="2"
+                                            d="M4 20h16m-8-6V4m0 10l4-4m-4 4l-4-4" />
+                                    </svg>
+                                    Download
+                                </button>
                                 <button v-on:click="deleteFiles"
                                     class="flex flex-row px-2 py-1 rounded-md transition-bg text-xs border hover:bg-love/10 active:bg-love/20 hover:text-love active:text-love items-center">
                                     <svg class="mr-1" xmlns="http://www.w3.org/2000/svg" width="16" height="16"
@@ -329,8 +386,9 @@ const deleteFiles = async () => {
                                 </tr>
                             </thead>
                             <tbody class="block">
-                                <tr class="flex flex-row h-10 group items-center border-b hover:bg-muted/10 transition-bg"
-                                    v-for="file in sortedFiles">
+                                <tr class="flex border-l-2 flex-row h-10 group items-center border-b active:bg-surface/45 transition-bg relative"
+                                    v-for="file in sortedFiles"
+                                    :class="file.toggled === 'checked' ? 'bg-accent/20 border-l-accent' : 'border-l-transparent hover:bg-surface'">
                                     <td class="-ml-7 pr-4 flex-shrink-0">
                                         <div class="w-5 h-5">
                                             <Checkbox class="group-hover:flex"
@@ -371,6 +429,18 @@ const deleteFiles = async () => {
                                     <td class="min-w-28 text-start sm:block hidden">
                                         {{ file.last_modified }}
                                     </td>
+                                    <td :class="file.toggled === 'checked' ? 'context-active' : 'context'"
+                                        class="absolute pl-6 top-0 bottom-0 right-0 hidden group-hover:flex items-center pr-8">
+                                        <button v-on:click="downloadFile(file)"
+                                            class="p-2 rounded hover:bg-muted/10 active:bg-muted/20">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                                                viewBox="0 0 24 24">
+                                                <path fill="none" stroke="currentColor" stroke-linecap="round"
+                                                    stroke-linejoin="round" stroke-width="2"
+                                                    d="M4 20h16m-8-6V4m0 10l4-4m-4 4l-4-4" />
+                                            </svg>
+                                        </button>
+                                    </td>
                                 </tr>
                             </tbody>
                         </table>
@@ -387,5 +457,13 @@ th {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.context-active {
+    background: linear-gradient(to right, transparent, var(--color-accent-20) 16px, var(--color-accent-20) 100%);
+}
+
+.context {
+    background: linear-gradient(to right, transparent, rgb(var(--color-surface)) 16px, rgb(var(--color-surface)) 100%);
 }
 </style>

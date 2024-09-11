@@ -20,6 +20,12 @@ var authenticatedPages = []string{
 func AuthCheckMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		path := c.Request().URL.Path
+
+		// bypass auth checks for static and dev resources
+		if strings.HasPrefix(path, "/_nuxt/") || strings.HasSuffix(path, ".js") || strings.HasSuffix(path, ".css") {
+			return next(c)
+		}
+
 		_, cookieErr := c.Cookie("sessionToken")
 		authenticated := cookieErr == nil
 

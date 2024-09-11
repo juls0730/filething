@@ -1,5 +1,5 @@
-//go:generate bun --cwd=./ui install
-//go:generate bun --bun --cwd=./ui run generate
+//go:generate sh -c "NODE_ENV=production bun --cwd=./ui install"
+//go:generate sh -c "NODE_ENV=production bun --bun --cwd=./ui run generate"
 package main
 
 import (
@@ -22,7 +22,10 @@ import (
 	"github.com/uptrace/bun/driver/pgdriver"
 )
 
+var initUi func(e *echo.Echo)
+
 func main() {
+
 	dbHost := os.Getenv("DB_HOST")
 	dbName := os.Getenv("DB_NAME")
 	dbUser := os.Getenv("DB_USER")
@@ -77,7 +80,7 @@ func main() {
 
 		api.POST("/files/upload*", routes.UploadFile)
 		api.GET("/files/get/*", routes.GetFiles)
-		api.GET("/files/download/*", routes.GetFile)
+		api.GET("/files/download*", routes.GetFile)
 		api.POST("/files/delete*", routes.DeleteFiles)
 	}
 
@@ -85,11 +88,13 @@ func main() {
 	// this isnt explicitly required, but it provides a better experience than doing this same thing clientside
 	e.Use(middleware.AuthCheckMiddleware)
 
-	e.GET("/*", echo.StaticDirectoryHandler(ui.DistDirFS, false))
+	initUi(e)
 
 	e.HTTPErrorHandler = customHTTPErrorHandler
 
-	e.Logger.Fatal(e.Start(":1323"))
+	if err := e.Start(":1323"); err != nil && err != http.ErrServerClosed {
+		fmt.Println("Error starting HTTP server:", err)
+	}
 }
 
 func customHTTPErrorHandler(err error, c echo.Context) {

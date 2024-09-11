@@ -1,6 +1,6 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
-    ssr: true,
+    ssr: process.env.NODE_ENV === 'production' ? true : false,
     compatibilityDate: '2024-04-03',
 
     css: ['~/assets/css/main.css'],
@@ -10,10 +10,6 @@ export default defineNuxtConfig({
     },
 
     devtools: { enabled: true },
-
-    experimental: {
-        buildCache: true,
-    },
 
     modules: [
         '@nuxtjs/color-mode',

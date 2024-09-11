@@ -13,9 +13,12 @@
         --highlight-low: 11 18 22;
         --highlight-med: 32 37 38;
         --highlight-high: 49 55 58;
-        --color-foam: 86 148 159;
+        --color-foam: 32 159 181;
         --color-love: 220 100 130;
         --color-pine: 40 105 131;
+        --color-accent: 136 57 239;
+        --color-accent-20: #dac9f1;
+        
 
         --nav-height: 48px;
     }
@@ -31,9 +34,11 @@
     --highlight-low: 244 237 232;
     --highlight-med: 223 218 217;
     --highlight-high: 206 202 205;
-    --color-foam: 156 207 216;
+    --color-foam: 145 215 227;
     --color-love: 235 111 146;
     --color-pine: 49 116 143;
+    --color-accent: 154 87 237;
+    --color-accent-20: #342c3f;
 
     color-scheme: dark;
 }
