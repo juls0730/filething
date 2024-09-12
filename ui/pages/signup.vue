@@ -1,6 +1,7 @@
 <script lang="ts" setup>
+import type { NuxtError } from '#app';
 import type { User } from '~/types/user'
-const { fetchUser } = useUser()
+const { setUser } = useUser()
 
 definePageMeta({
     middleware: "unauth"
@@ -13,20 +14,22 @@ let password = ref('')
 let error = ref('')
 
 const submitForm = async () => {
-    const response = await useFetch<User>('/api/signup', {
-        method: 'POST',
-        body: {
-            "username": username.value,
-            "email": email.value,
-            "password": password.value,
-        }
-    })
+    let { data, error: fetchError } = await useAsyncData<User, NuxtError<{ message: string }>>(
+        () => $fetch('/api/signup', {
+            method: 'POST',
+            body: {
+                "username": username.value,
+                "email": email.value,
+                "password": password.value,
+            }
+        })
+    )
 
-    if (response.error.value != null) {
-        error.value = response.error.value.data.message
+    if (fetchError.value != null && fetchError.value.data !== undefined) {
+        error.value = fetchError.value.data.message
         setTimeout(() => error.value = "", 15000)
-    } else {
-        await fetchUser()
+    } else if (data.value !== null) {
+        setUser(data.value)
         await navigateTo('/home')
     }
 }
@@ -42,8 +45,9 @@ const submitForm = async () => {
             <Input v-model="password" type="password" placeholder="Password..." />
             <p class="text-love">{{ error }}</p>
             <button @click="submitForm"
-                class="py-2 px-4 my-2 bg-pine/10 text-pine rounded-md transition-colors hover:bg-pine/15 active:bg-pine/25">Login</button>
-            <p>Or <NuxtLink to="/login" class="text-foam hover:underline">Log in</NuxtLink>
+                class="py-2 px-4 my-2 bg-pine/10 text-pine rounded-md transition-colors hover:bg-pine/15 active:bg-pine/25 focus:outline-none focus:ring focus:ring-inset">Login</button>
+            <p>Or <NuxtLink to="/login"
+                    class="text-foam hover:underline focus:outline-none focus:ring focus:ring-inset">Log in</NuxtLink>
             </p>
         </div>
     </div>

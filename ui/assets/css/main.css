@@ -19,7 +19,6 @@
         --color-accent: 136 57 239;
         --color-accent-20: #dac9f1;
         
-
         --nav-height: 48px;
     }
 }
@@ -38,7 +37,7 @@
     --color-love: 235 111 146;
     --color-pine: 49 116 143;
     --color-accent: 154 87 237;
-    --color-accent-20: #342c3f;
+    --color-accent-20: #2a1c3d;
 
     color-scheme: dark;
 }
@@ -48,7 +47,8 @@
     @apply ease-[cubic-bezier(0.25,_1,_0.5,_1)];
 }
 
-body {
+html, body {
+    overflow: hidden !important;
     background-color: rgb(var(--color-base));
     color: rgb(var(--color-text));
 }

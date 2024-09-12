@@ -2,13 +2,7 @@ module filething
 
 go 1.23.0
 
-require github.com/go-pg/pg v8.0.7+incompatible
-
-require (
-	github.com/google/uuid v1.6.0 // indirect
-	github.com/onsi/ginkgo v1.14.2 // indirect
-	github.com/onsi/gomega v1.10.3 // indirect
-)
+require github.com/google/uuid v1.6.0
 
 require (
 	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
@@ -26,8 +20,8 @@ require (
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	github.com/vmihailenco/msgpack/v5 v5.4.1 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
-	golang.org/x/crypto v0.26.0 // indirect
-	golang.org/x/net v0.24.0 // indirect
+	golang.org/x/crypto v0.26.0
+	golang.org/x/net v0.25.0 // indirect
 	golang.org/x/sys v0.24.0 // indirect
 	golang.org/x/text v0.17.0 // indirect
 	golang.org/x/time v0.5.0 // indirect

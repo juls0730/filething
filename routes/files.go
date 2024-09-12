@@ -65,7 +65,7 @@ func UploadFile(c echo.Context) error {
 					Name:         entry.Name(),
 					IsDir:        entry.IsDir(),
 					Size:         entry.Size(),
-					LastModified: entry.ModTime().Format("1/2/2006"),
+					LastModified: entry.ModTime().Format("2 Jan 06"),
 				},
 			}
 
@@ -139,7 +139,7 @@ func UploadFile(c echo.Context) error {
 					Name:         entry.Name(),
 					IsDir:        entry.IsDir(),
 					Size:         entry.Size(),
-					LastModified: entry.ModTime().Format("1/2/2006"),
+					LastModified: entry.ModTime().Format("2 Jan 06"),
 				},
 			}
 

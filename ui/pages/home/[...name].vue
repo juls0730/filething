@@ -1,7 +1,7 @@
 <script lang="ts" setup>
+import type { NuxtError } from '#app';
 import { useUser } from '~/composables/useUser'
-import type { File } from '~/types/file';
-import type { FileUpload } from '~/types/user';
+import type { File, UploadResponse, FileUpload } from '~/types/file';
 const { getUser } = useUser()
 
 definePageMeta({
@@ -11,7 +11,7 @@ definePageMeta({
 const user = await getUser()
 const route = useRoute();
 
-let { data: files } = await useFetch<[File]>('/api/files/get/' + route.path.replace(/^\/home/, ''))
+let { data: files } = await useFetch<File[]>('/api/files/get/' + route.path.replace(/^\/home/, ''))
 
 const sortedFiles = computed(() => {
     files.value?.forEach(file => file.toggled === undefined ? file.toggled = 'unchecked' : {})
@@ -23,16 +23,20 @@ const sortedFiles = computed(() => {
         return ('' + a.name).localeCompare(b.name);
     });
 
-    return folders?.concat(archives)
+    if (folders === undefined || archives === undefined) {
+        return
+    }
+
+    return folders.concat(archives)
 })
 
-let selectAll = ref('unchecked');
+let selectAll: Ref<"unchecked" | "some" | "checked"> = ref('unchecked');
 let selectedFiles = computed(() => sortedFiles.value?.filter(file => file.toggled === 'checked'))
 
 watch(sortedFiles, (newVal, oldVal) => {
     let checkedFilesLength = newVal?.filter(file => file.toggled === 'checked').length;
-    if (checkedFilesLength > 0) {
-        if (checkedFilesLength < newVal?.length) {
+    if (newVal !== undefined && checkedFilesLength !== undefined && checkedFilesLength > 0) {
+        if (checkedFilesLength < newVal.length) {
             selectAll.value = 'some';
         } else {
             selectAll.value = 'checked';
@@ -58,6 +62,8 @@ let folderError = ref('');
 let popupVisable = ref(false);
 let uploadPaneClosed = ref(true);
 
+let fileNavClosed = ref(true);
+
 if (typeof route.params.name == "object") {
     folder.value = route.params.name.join("/");
 }
@@ -82,12 +88,12 @@ const handleFileChange = (event: Event) => {
         return
     }
 
-    if (fileInput.value.files.length > 0) {
+    if (fileInput.value.files && fileInput.value.files.length > 0) {
         fileInput.value.value = "";
     }
 }
 
-const uploadFile = (file: File) => {
+const uploadFile = (file: globalThis.File) => {
     const xhr = new XMLHttpRequest();
     const startTime = Date.now();
     let id = `${file.name}-${Math.floor(Math.random() * 1000)}`;
@@ -97,7 +103,15 @@ const uploadFile = (file: File) => {
         uploading: true,
         controller: xhr,
         startTime,
-        file: file,
+        speed: 0,
+        remainingTime: Infinity,
+        file: {
+            name: file.name,
+            is_dir: false,
+            size: file.size,
+            last_modified: "",
+            toggled: "unchecked"
+        },
         length: {},
         status: {}
     }
@@ -208,7 +222,7 @@ const openFilePicker = () => {
 }
 
 const createFolder = async () => {
-    const { data, error } = await useAsyncData(
+    const { data, error } = await useAsyncData<UploadResponse, NuxtError<{ message: string }>>(
         () => $fetch('/api/files/upload' + route.path.replace(/^\/home/, '') + '/' + folderName.value, {
             method: "POST",
             body: {
@@ -217,14 +231,16 @@ const createFolder = async () => {
         })
     )
 
-    if (error.value != null) {
-        folderError.value = error.value.data.message;
-    } else {
+    console.log(error.value)
+
+    if (data.value != null) {
         user.usage = data.value.usage
         files.value?.push(data.value.file)
 
         popupVisable.value = false;
         navigateTo(route.path + '/' + folderName.value);
+    } else if (error.value != null && error.value.data != undefined) {
+        folderError.value = error.value.data.message;
     }
 }
 
@@ -236,10 +252,14 @@ const deleteFiles = async () => {
         }
     })
 
+    if (files.value === null) {
+        throw new Error("Files are null!")
+    }
+
     files.value = files.value?.filter(file => !selectedFiles.value?.includes(file))
 }
 
-const downloadFile = (file) => {
+const downloadFile = (file: File) => {
     const anchor = document.createElement('a');
     anchor.href = '/api/files/download/' + file.name;
     anchor.download = file.name;
@@ -253,13 +273,17 @@ const downloadFiles = async () => {
     let filenames = ""
 
     selectedFiles.value?.forEach((file, i) => {
+        if (selectedFiles.value === undefined) {
+            throw new Error("selected files is undefined")
+        }
+
         filenames += encodeURIComponent(file.name)
-        if (i != selectedFiles.value?.length - 1) {
+        if (i != selectedFiles.value.length - 1) {
             filenames += ",";
         }
     })
 
-    let { data, error } = await useAsyncData(
+    let { data, error } = await useAsyncData<Blob, NuxtError<{ message: string }>>(
         () => $fetch('/api/files/download', {
             params: {
                 "filenames": filenames
@@ -267,9 +291,7 @@ const downloadFiles = async () => {
         })
     )
 
-    console.log("DATA", data.value)
-
-    if (error.value == null) {
+    if (data.value !== null) {
         const anchor = document.createElement('a');
         anchor.href = window.URL.createObjectURL(data.value)
         anchor.download = "filething.zip";
@@ -283,7 +305,11 @@ const downloadFiles = async () => {
 
 <template>
     <div class="flex relative min-h-[100dvh]">
-        <div class="fixed md:relative -translate-x-full md:translate-x-0">
+        <div v-if="!fileNavClosed" v-on:click="fileNavClosed = !fileNavClosed"
+            class="absolute top-0 left-0 bottom-0 right-0 bg-base/40 z-40 block md:hidden">
+        </div>
+        <div class="fixed md:relative -translate-x-full md:translate-x-0 transition-transform z-50 md:z-20"
+            :class="{ 'translate-x-0': !fileNavClosed }">
             <FileNav :usageBytes="user.usage" />
         </div>
         <UploadPane :closed="uploadPaneClosed" v-on:update:closed="(newValue) => uploadPaneClosed = newValue"
@@ -306,13 +332,13 @@ const downloadFiles = async () => {
         </Popup>
 
         <div class="w-full">
-            <Nav />
-            <div class="pt-6 pl-12 overflow-auto max-h-[calc(100vh-var(--nav-height))]">
+            <Nav v-on:update:filenav="(e) => fileNavClosed = e" :filenav="fileNavClosed" />
+            <div class="pt-6 pl-12 overflow-y-auto max-h-[calc(100vh-var(--nav-height))]" id="main">
                 <div class="flex gap-x-4 flex-col">
                     <div class="py-5 flex flex-row gap-x-4">
                         <input type="file" ref="fileInput" @change="handleFileChange" multiple class="hidden" />
                         <button v-on:click="openFilePicker"
-                            class="rounded-xl border-2 border-surface flex flex-col gap-y-2 px-2 py-3 w-40 justify-center items-center hover:bg-muted/10 active:bg-muted/20 transition-bg">
+                            class="focus:outline-none focus:ring focus:ring-inset rounded-xl border-2 border-surface flex flex-col gap-y-2 px-2 py-3 w-40 justify-center items-center hover:bg-muted/10 active:bg-muted/20 transition-bg">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
                                 <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
                                     stroke-width="2">
@@ -323,7 +349,7 @@ const downloadFiles = async () => {
                             Upload
                         </button>
                         <button v-on:click="popupVisable = !popupVisable"
-                            class="rounded-xl border-2 border-surface flex flex-col gap-y-2 px-2 py-3 w-40 justify-center items-center hover:bg-muted/10 active:bg-muted/20 transition-bg">
+                            class="focus:outline-none focus:ring focus:ring-inset rounded-xl border-2 border-surface flex flex-col gap-y-2 px-2 py-3 w-40 justify-center items-center hover:bg-muted/10 active:bg-muted/20 transition-bg">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
                                 <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
                                     stroke-width="2">
@@ -342,9 +368,10 @@ const downloadFiles = async () => {
                             <Breadcrumbs :path="route.path" />
                         </h3>
                         <div class="mt-2">
-                            <div class="flex flex-row gap-x-2" v-if="selectedFiles?.length > 0">
+                            <div class="flex flex-row gap-x-2"
+                                v-if="selectedFiles !== undefined && selectedFiles.length > 0">
                                 <button v-on:click="downloadFiles"
-                                    class="flex flex-row px-2 py-1 rounded-md transition-bg text-xs border hover:bg-muted/10 active:bg-muted/20 items-center">
+                                    class="flex flex-row px-2 py-1 rounded-md transition-bg text-xs border hover:bg-muted/10 active:bg-muted/20 items-center focus:outline-none focus:ring focus:ring-inset">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24">
                                         <path fill="none" stroke="currentColor" stroke-linecap="round"
                                             stroke-linejoin="round" stroke-width="2"
@@ -353,7 +380,7 @@ const downloadFiles = async () => {
                                     Download
                                 </button>
                                 <button v-on:click="deleteFiles"
-                                    class="flex flex-row px-2 py-1 rounded-md transition-bg text-xs border hover:bg-love/10 active:bg-love/20 hover:text-love active:text-love items-center">
+                                    class="flex flex-row px-2 py-1 rounded-md transition-bg text-xs border hover:bg-love/10 active:bg-love/20 hover:text-love active:text-love items-center focus:outline-none focus:ring focus:ring-inset">
                                     <svg class="mr-1" xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                         viewBox="0 0 24 24">
                                         <path fill="none" stroke="currentColor" stroke-linecap="round"
@@ -389,7 +416,7 @@ const downloadFiles = async () => {
                                 <tr class="flex border-l-2 flex-row h-10 group items-center border-b active:bg-surface/45 transition-bg relative"
                                     v-for="file in sortedFiles"
                                     :class="file.toggled === 'checked' ? 'bg-accent/20 border-l-accent' : 'border-l-transparent hover:bg-surface'">
-                                    <td class="-ml-7 pr-4 flex-shrink-0">
+                                    <td class="-ml-7 flex-shrink-0">
                                         <div class="w-5 h-5">
                                             <Checkbox class="group-hover:flex"
                                                 :class="{ 'hidden': file.toggled === 'unchecked' }"
@@ -397,7 +424,10 @@ const downloadFiles = async () => {
                                         </div>
                                     </td>
                                     <td v-on:click="file.toggled === 'unchecked' ? file.toggled = 'checked' : file.toggled = 'unchecked'"
-                                        class="flex-grow text-start flex items-center h-full min-w-40">
+                                        v-on:keypress.enter="file.toggled === 'unchecked' ? file.toggled = 'checked' : file.toggled = 'unchecked'"
+                                        v-on:keypress.space="file.toggled === 'unchecked' ? file.toggled = 'checked' : file.toggled = 'unchecked'"
+                                        class="flex-grow text-start flex items-center h-full min-w-40 focus:outline-none focus:ring focus:ring-inset pl-4"
+                                        tabindex="0">
                                         <div class="flex items-center min-w-40">
                                             <svg v-if="!file.is_dir" class="mr-2 flex-shrink-0"
                                                 xmlns="http://www.w3.org/2000/svg" width="16" height="16"
@@ -416,7 +446,8 @@ const downloadFiles = async () => {
                                                     d="M5 4h4l3 3h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2" />
                                             </svg>
                                             <span class="overflow-hidden whitespace-nowrap text-ellipsis">
-                                                <NuxtLink v-if="file.is_dir" :to="`${route.path}/${file.name}`">
+                                                <NuxtLink v-if="file.is_dir" class="hover:underline focus:underline"
+                                                    :to="`${route.path}/${file.name}`">
                                                     {{ file.name }}
                                                 </NuxtLink>
                                                 <span v-else>{{ file.name }}</span>
@@ -430,9 +461,9 @@ const downloadFiles = async () => {
                                         {{ file.last_modified }}
                                     </td>
                                     <td :class="file.toggled === 'checked' ? 'context-active' : 'context'"
-                                        class="absolute pl-6 top-0 bottom-0 right-0 hidden group-hover:flex items-center pr-8">
+                                        class="absolute pl-6 top-0 bottom-0 right-0 hidden group-hover:flex group-focus-within:flex items-center pr-8">
                                         <button v-on:click="downloadFile(file)"
-                                            class="p-2 rounded hover:bg-muted/10 active:bg-muted/20">
+                                            class="p-2 rounded hover:bg-muted/10 active:bg-muted/20 focus:outline-none focus:ring focus:ring-inset">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
                                                 viewBox="0 0 24 24">
                                                 <path fill="none" stroke="currentColor" stroke-linecap="round"
@@ -464,6 +495,6 @@ th {
 }
 
 .context {
-    background: linear-gradient(to right, transparent, rgb(var(--color-surface)) 16px, rgb(var(--color-surface)) 100%);
+    background: linear-gradient(to right, transparent, rgb(var(--color-base)) 16px, rgb(var(--color-base)) 100%);
 }
 </style>

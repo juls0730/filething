@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { formatBytes } from '~/utils/formatBytes';
-import type { FileUpload } from '~/types/user';
+import type { FileUpload } from '~/types/file';
 
 const props = defineProps({
     uploadingFiles: {
@@ -45,12 +45,21 @@ const formatRemainingTime = (seconds: number): string => {
 const truncateFilenameToFitWidth = (filename: string, maxWidthPx: number, font = '18px ui-sans-serif,system-ui,sans-serif,Apple Color Emoji,Segoe UI Emoji,Segoe UI Symbol,Noto Color Emoji') => {
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
+
+    if (context === null) {
+        return
+    }
+
     context.font = font;
 
     const name = filename.substring(0, filename.lastIndexOf('.'));
     const extension = filename.substring(filename.lastIndexOf('.'));
 
-    function getTextWidth(text) {
+    function getTextWidth(text: string): number {
+        if (context === null) {
+            return 0
+        }
+
         return context.measureText(text).width;
     }
 
@@ -99,7 +108,7 @@ let uploadFailed = computed(() => props.uploadingFiles.filter(x => x.status.erro
 </script>
 
 <template>
-    <div class="absolute bottom-0 right-0 m-3 rounded-2xl border flex flex-col sm:w-[440px] w-[calc(100%-24px)] shadow-md bg-surface"
+    <div class="absolute bottom-0 right-0 m-3 rounded-2xl border flex flex-col sm:w-[440px] w-[calc(100%-24px)] shadow-md bg-surface z-20"
         :class="{ 'h-[510px]': !collapsed, 'hidden': closed }">
         <div class="flex flex-row justify-between h-14 items-center mb-3 px-4" :class="{ 'hidden': collapsed }">
             <h3 class="text-xl font-semibold">Upload</h3>

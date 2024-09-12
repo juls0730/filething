@@ -20,5 +20,5 @@ DB_HOST=localhost:5432 DB_NAME=filething DB_USER=postgres STORAGE_PATH=data ./fi
 To run filething in dev mode with a hot reloading Ui server and auto rebuilding backend server, run
 
 ```BASH
-DB_HOST=localhost:5432 DB_NAME=filething DB_USER=postgres STORAGE_PATH=data CompileDaemon --build="go build -tags netgo,dev -ldflags=-s" --command=./filething --exclude-dir=data/ --graceful-kill
+DB_HOST=localhost:5432 DB_NAME=filething DB_USER=postgres STORAGE_PATH=data CompileDaemon --build="go build -tags netgo,dev -ldflags=-s" --command=./filething --exclude-dir=data/ --exclude-dir=ui. --graceful-kill
 ```

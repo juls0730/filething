@@ -3,7 +3,7 @@ import { useUser } from '~/composables/useUser'
 const { getUser } = useUser()
 
 const props = defineProps({
-    usageBytes: Number
+    usageBytes: Number,
 })
 
 const user = await getUser()
@@ -35,7 +35,11 @@ const isInFolder = computed(() => route.path.startsWith('/home/') && route.path 
 </script>
 
 <template>
-    <aside class="h-screen flex flex-col w-56 pt-3 bg-surface border-r">
+    <aside class="h-screen flex flex-col w-56 pt-3 bg-surface border-r z-50 md:z-20">
+        <a href="#main"
+            class="absolute w-fit -translate-x-full top-0 px-2 py-4 bg-surface border  opacity-0 focus-within:translate-x-0 focus-within:opacity-100">
+            Skip to content
+        </a>
         <div class="pl-9 h-14 flex items-center">
             <h2>Home</h2>
         </div>
@@ -43,7 +47,7 @@ const isInFolder = computed(() => route.path.startsWith('/home/') && route.path 
             <ul class="flex flex-col gap-y-2">
                 <li>
                     <NuxtLink to="/home"
-                        class="flex py-1.5 px-4 rounded-lg transition-bg duration-300 hover:bg-muted/10"
+                        class="flex py-1.5 px-4 rounded-lg transition-bg duration-300 hover:bg-muted/10 focus:outline-none focus:ring focus:ring-inset"
                         :class="{ 'bg-muted/10': isAllFilesActive }">
                         <div class="flex relative">
                             <svg class="m-0.5 mr-2" xmlns="http://www.w3.org/2000/svg" width="20" height="20"

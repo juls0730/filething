@@ -29,13 +29,21 @@ func LoginHandler(c echo.Context) error {
 	db := c.Get("db").(*bun.DB)
 
 	user := new(models.User)
-	err := db.NewSelect().Model(user).Where("email = ?", loginData.UsernameOrEmail).Scan(context.Background())
+	err := db.NewSelect().Model(user).Where("email = ?", loginData.UsernameOrEmail).Relation("Plan").Scan(context.Background())
 	if err != nil {
-		err := db.NewSelect().Model(user).Where("username = ?", loginData.UsernameOrEmail).Scan(context.Background())
+		err := db.NewSelect().Model(user).Where("username = ?", loginData.UsernameOrEmail).Relation("Plan").Scan(context.Background())
 		if err != nil {
 			return c.JSON(http.StatusNotFound, map[string]string{"message": "User with that username or email not found!"})
 		}
 	}
+
+	basePath := fmt.Sprintf("%s/%s/", os.Getenv("STORAGE_PATH"), user.ID)
+	storageUsage, err := calculateStorageUsage(basePath)
+	if err != nil {
+		return err
+	}
+
+	user.Usage = storageUsage
 
 	session, err := GenerateSessionToken(db, user.ID)
 
@@ -53,7 +61,7 @@ func LoginHandler(c echo.Context) error {
 		Path:     "/",
 	})
 
-	return c.JSON(http.StatusOK, map[string]string{"message": "Login successful!"})
+	return c.JSON(http.StatusOK, user)
 }
 
 func SignupHandler(c echo.Context) error {
@@ -91,14 +99,15 @@ func SignupHandler(c echo.Context) error {
 		return c.JSON(http.StatusConflict, map[string]string{"message": "A user with that email or username already exists!"})
 	}
 
+	err = db.NewSelect().Model(user).WherePK().Relation("Plan").Scan(context.Background())
+	if err != nil {
+		return c.JSON(http.StatusNotFound, map[string]string{"message": "An unknown error occoured!"})
+	}
+
 	err = os.Mkdir(fmt.Sprintf("%s/%s", os.Getenv("STORAGE_PATH"), user.ID), os.ModePerm)
 	if err != nil {
 		fmt.Println(err)
 		return err
-	}
-
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "An unknown error occoured!"})
 	}
 
 	session, err := GenerateSessionToken(db, user.ID)
@@ -117,7 +126,7 @@ func SignupHandler(c echo.Context) error {
 		Path:     "/",
 	})
 
-	return c.JSON(http.StatusOK, map[string]string{"message": "Signup successful!"})
+	return c.JSON(http.StatusOK, user)
 }
 
 func GenerateSessionToken(db *bun.DB, userId uuid.UUID) (*models.Session, error) {
@@ -145,4 +154,33 @@ func GetUser(c echo.Context) error {
 	user.(*models.User).Usage = storageUsage
 
 	return c.JSON(http.StatusOK, user.(*models.User))
+}
+
+func LogoutHandler(c echo.Context) error {
+	db := c.Get("db").(*bun.DB)
+
+	cookie, err := c.Cookie("sessionToken")
+	if err != nil {
+		if err == http.ErrNoCookie {
+			return echo.NewHTTPError(http.StatusUnauthorized, "Session token missing")
+		}
+		return echo.NewHTTPError(http.StatusBadRequest, "Bad request")
+	}
+
+	sessionId, err := uuid.Parse(cookie.Value)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Bad request")
+	}
+
+	session := &models.Session{
+		ID: sessionId,
+	}
+	_, err = db.NewDelete().Model(session).WherePK().Exec(context.Background())
+
+	if err != nil {
+		fmt.Println(err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "An unknown error occoured!"})
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{"message": "Succesfully logged out"})
 }
