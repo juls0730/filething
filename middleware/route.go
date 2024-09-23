@@ -41,6 +41,10 @@ func AuthCheckMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 			return c.Redirect(http.StatusFound, "/login")
 		}
 
+		if strings.Contains(path, "/admin") && !authenticated {
+			return c.Redirect(http.StatusFound, "/login")
+		}
+
 		return next(c)
 	}
 }

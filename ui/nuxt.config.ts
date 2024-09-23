@@ -11,14 +11,5 @@ export default defineNuxtConfig({
 
     devtools: { enabled: true },
 
-    modules: [
-        '@nuxtjs/color-mode',
-    ],
-
-    postcss: {
-        plugins: {
-            tailwindcss: {},
-            autoprefixer: {},
-        },
-    },
+    modules: ['@nuxtjs/color-mode', '@nuxtjs/tailwindcss']
 })

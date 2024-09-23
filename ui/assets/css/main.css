@@ -48,8 +48,10 @@
 }
 
 html, body {
-    overflow: hidden !important;
+    min-height: 100vh;
+    overflow-x: hidden !important;
     background-color: rgb(var(--color-base));
+    overflow-wrap: break-word;
     color: rgb(var(--color-text));
 }
 

@@ -25,7 +25,7 @@ const crumbs = computed(() => {
                 <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="m9 6l6 6l-6 6" />
             </svg>
-            <NuxtLink class="focus:outline-none focus:ring focus:ring-inset"
+            <NuxtLink class="focus-visible:outline-none focus-visible:ring focus-visible:ring-inset"
                 :class="index === crumbs.length - 1 ? 'text-foam' : 'text-subtle hover:text-text focus:text-text'"
                 :to="crumb.link">{{
                     crumb.name }}</NuxtLink>

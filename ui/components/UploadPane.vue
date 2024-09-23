@@ -114,14 +114,14 @@ let uploadFailed = computed(() => props.uploadingFiles.filter(x => x.status.erro
             <h3 class="text-xl font-semibold">Upload</h3>
             <div class="flex flex-row gap-x-2">
                 <button v-on:click="collapsed = !collapsed"
-                    class="p-1 border h-fit rounded-md hover:bg-muted/10 active:bg-muted/20 transition-bg">
+                    class="p-1 border h-fit rounded-md hover:bg-muted/10 active:bg-muted/20 transition-bg focus-visible:outline-none focus-visible:ring focus-visible:ring-inset">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
                         <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
                             stroke-width="2" d="m6 9l6 6l6-6" />
                     </svg>
                 </button>
                 <button v-on:click="$emit('update:closed', true)" v-if="closeable"
-                    class="p-1 border h-fit rounded-md hover:bg-muted/10 active:bg-muted/20 transition-bg">
+                    class="p-1 border h-fit rounded-md hover:bg-muted/10 active:bg-muted/20 transition-bg focus-visible:outline-none focus-visible:ring focus-visible:ring-inset">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
                         <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
                             stroke-width="2" d="M18 6L6 18M6 6l12 12" />
@@ -197,7 +197,7 @@ let uploadFailed = computed(() => props.uploadingFiles.filter(x => x.status.erro
                     </div>
                     <div class="flex items-center" v-if="upload.uploading">
                         <button v-on:click="abortUpload(upload.id)"
-                            class="h-fit p-1 border rounded-md hover:bg-love/10 active:bg-love/20 hover:text-love transition-[background-color,color] text-sm py-1 px-2">
+                            class="h-fit p-1 border rounded-md hover:bg-love/10 active:bg-love/20 hover:text-love focus-visible:text-love focus-visible:bg-love/10 transition-[background-color,color] text-sm py-1 px-2 focus-visible:outline-none focus-visible:ring focus-visible:ring-inset">
                             Cancel
                         </button>
                     </div>

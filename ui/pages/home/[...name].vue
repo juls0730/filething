@@ -8,7 +8,7 @@ definePageMeta({
     middleware: "auth"
 });
 
-const user = await getUser()
+const user = await getUser();
 const route = useRoute();
 
 let { data: files } = await useFetch<File[]>('/api/files/get/' + route.path.replace(/^\/home/, ''))
@@ -33,7 +33,7 @@ const sortedFiles = computed(() => {
 let selectAll: Ref<"unchecked" | "some" | "checked"> = ref('unchecked');
 let selectedFiles = computed(() => sortedFiles.value?.filter(file => file.toggled === 'checked'))
 
-watch(sortedFiles, (newVal, oldVal) => {
+watch(sortedFiles, (newVal) => {
     let checkedFilesLength = newVal?.filter(file => file.toggled === 'checked').length;
     if (newVal !== undefined && checkedFilesLength !== undefined && checkedFilesLength > 0) {
         if (checkedFilesLength < newVal.length) {
@@ -46,7 +46,7 @@ watch(sortedFiles, (newVal, oldVal) => {
     }
 })
 
-watch(selectAll, (newVal, oldVal) => {
+watch(selectAll, (newVal) => {
     if (newVal === 'some') {
         return
     }
@@ -231,8 +231,6 @@ const createFolder = async () => {
         })
     )
 
-    console.log(error.value)
-
     if (data.value != null) {
         user.usage = data.value.usage
         files.value?.push(data.value.file)
@@ -318,27 +316,28 @@ const downloadFiles = async () => {
             <div class="flex flex-col p-2">
                 <div class="mb-3 flex flex-col">
                     <label for="folderNameInput" class="text-sm">name</label>
+                    <!-- TODO figure out why I cant focus this when the popup opens -->
                     <Input id="folderNameInput" v-model="folderName" placeholder="Folder name" />
                     <p class="text-love">{{ folderError }}</p>
                 </div>
                 <div class="ml-auto flex gap-x-1.5">
                     <button v-on:click="popupVisable = !popupVisable"
-                        class=" px-2 py-1 rounded-md text-sm border bg-muted/10 hover:bg-muted/15 active:bg-muted/25 transition-bg">Close</button>
+                        class=" px-2 py-1 rounded-md text-sm border bg-muted/10 hover:bg-muted/15 active:bg-muted/25 transition-bg focus-visible:outline-none focus-visible:ring focus-visible:ring-inset">Close</button>
                     <button v-on:click="createFolder" :disabled="folderName === ''"
                         class=" px-2 py-1 rounded-md text-sm
-                        disabled:bg-highlight-med/50 bg-highlight-med not:hover:brightness-105 not:active:brightness-110 transition-[background-color,filter] text-surface disabled:cursor-not-allowed">Confirm</button>
+                        disabled:bg-highlight-med/50 bg-highlight-med not:hover:brightness-105 not:active:brightness-110 transition-[background-color,filter] text-surface disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring focus-visible:ring-inset">Confirm</button>
                 </div>
             </div>
         </Popup>
 
         <div class="w-full">
-            <Nav v-on:update:filenav="(e) => fileNavClosed = e" :filenav="fileNavClosed" />
+            <Nav v-on:update:filenav="(e) => fileNavClosed = e" :filenav="fileNavClosed" :user="user" />
             <div class="pt-6 pl-12 overflow-y-auto max-h-[calc(100vh-var(--nav-height))]" id="main">
                 <div class="flex gap-x-4 flex-col">
                     <div class="py-5 flex flex-row gap-x-4">
                         <input type="file" ref="fileInput" @change="handleFileChange" multiple class="hidden" />
                         <button v-on:click="openFilePicker"
-                            class="focus:outline-none focus:ring focus:ring-inset rounded-xl border-2 border-surface flex flex-col gap-y-2 px-2 py-3 w-40 justify-center items-center hover:bg-muted/10 active:bg-muted/20 transition-bg">
+                            class="rounded-xl border-2 border-surface flex flex-col gap-y-2 px-2 py-3 w-40 justify-center items-center hover:bg-muted/10 active:bg-muted/20 transition-bg focus-visible:outline-none focus-visible:ring focus-visible:ring-inset">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
                                 <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
                                     stroke-width="2">
@@ -349,7 +348,7 @@ const downloadFiles = async () => {
                             Upload
                         </button>
                         <button v-on:click="popupVisable = !popupVisable"
-                            class="focus:outline-none focus:ring focus:ring-inset rounded-xl border-2 border-surface flex flex-col gap-y-2 px-2 py-3 w-40 justify-center items-center hover:bg-muted/10 active:bg-muted/20 transition-bg">
+                            class="rounded-xl border-2 border-surface flex flex-col gap-y-2 px-2 py-3 w-40 justify-center items-center hover:bg-muted/10 active:bg-muted/20 transition-bg focus-visible:outline-none focus-visible:ring focus-visible:ring-inset">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
                                 <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
                                     stroke-width="2">
@@ -371,7 +370,7 @@ const downloadFiles = async () => {
                             <div class="flex flex-row gap-x-2"
                                 v-if="selectedFiles !== undefined && selectedFiles.length > 0">
                                 <button v-on:click="downloadFiles"
-                                    class="flex flex-row px-2 py-1 rounded-md transition-bg text-xs border hover:bg-muted/10 active:bg-muted/20 items-center focus:outline-none focus:ring focus:ring-inset">
+                                    class="flex flex-row px-2 py-1 rounded-md transition-bg text-xs border hover:bg-muted/10 active:bg-muted/20 items-center focus-visible:outline-none focus-visible:ring focus-visible:ring-inset">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24">
                                         <path fill="none" stroke="currentColor" stroke-linecap="round"
                                             stroke-linejoin="round" stroke-width="2"
@@ -380,7 +379,7 @@ const downloadFiles = async () => {
                                     Download
                                 </button>
                                 <button v-on:click="deleteFiles"
-                                    class="flex flex-row px-2 py-1 rounded-md transition-bg text-xs border hover:bg-love/10 active:bg-love/20 hover:text-love active:text-love items-center focus:outline-none focus:ring focus:ring-inset">
+                                    class="flex flex-row px-2 py-1 rounded-md transition-bg text-xs border hover:bg-love/10 active:bg-love/20 hover:text-love active:text-love items-center focus-visible:outline-none focus-visible:ring focus-visible:ring-inset">
                                     <svg class="mr-1" xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                         viewBox="0 0 24 24">
                                         <path fill="none" stroke="currentColor" stroke-linecap="round"
@@ -393,15 +392,18 @@ const downloadFiles = async () => {
                         </div>
                         <table class="w-full text-sm mt-2 table-fixed">
                             <thead class="border-b">
-                                <tr class="flex flex-row h-10 group pl-[30px] -ml-7 relative items-center">
-                                    <th class="left-0 absolute">
-                                        <div>
+                                <tr class="flex flex-row h-10 group relative items-center focus-visible:outline-none focus-visible:ring focus-visible:ring-inset"
+                                    v-on:keypress.enter="selectAll === 'unchecked' ? selectAll = 'checked' : selectAll = 'unchecked'"
+                                    v-on:keypress.space.prevent="selectAll === 'unchecked' ? selectAll = 'checked' : selectAll = 'unchecked'"
+                                    tabindex="0">
+                                    <th class="-ml-7 flex-shrink-0">
+                                        <div class="w-5 h-5">
                                             <Checkbox :class="{ 'hidden': selectAll === 'unchecked' }"
                                                 v-model="selectAll" class="group-hover:flex" type="checkbox" />
                                         </div>
                                     </th>
                                     <th v-on:click="selectAll === 'unchecked' ? selectAll = 'checked' : selectAll = 'unchecked'"
-                                        class="flex-grow min-w-40 text-start flex items-center h-full">
+                                        class="pl-4 flex-grow min-w-40 text-start flex items-center h-full">
                                         Name
                                     </th>
                                     <th class="min-w-32 text-start">
@@ -413,9 +415,12 @@ const downloadFiles = async () => {
                                 </tr>
                             </thead>
                             <tbody class="block">
-                                <tr class="flex border-l-2 flex-row h-10 group items-center border-b active:bg-surface/45 transition-bg relative"
-                                    v-for="file in sortedFiles"
-                                    :class="file.toggled === 'checked' ? 'bg-accent/20 border-l-accent' : 'border-l-transparent hover:bg-surface'">
+                                <tr v-for="file in sortedFiles"
+                                    class="flex border-l-2 flex-row h-10 group items-center border-b active:bg-surface/45 transition-bg relative focus-visible:outline-none focus-visible:ring focus-visible:ring-inset"
+                                    :class="file.toggled === 'checked' ? 'bg-accent/20 border-l-accent' : 'border-l-transparent hover:bg-surface'"
+                                    v-on:keypress.enter="file.toggled === 'unchecked' ? file.toggled = 'checked' : file.toggled = 'unchecked'"
+                                    v-on:keypress.space.prevent="file.toggled === 'unchecked' ? file.toggled = 'checked' : file.toggled = 'unchecked'"
+                                    tabindex="0">
                                     <td class="-ml-7 flex-shrink-0">
                                         <div class="w-5 h-5">
                                             <Checkbox class="group-hover:flex"
@@ -424,10 +429,7 @@ const downloadFiles = async () => {
                                         </div>
                                     </td>
                                     <td v-on:click="file.toggled === 'unchecked' ? file.toggled = 'checked' : file.toggled = 'unchecked'"
-                                        v-on:keypress.enter="file.toggled === 'unchecked' ? file.toggled = 'checked' : file.toggled = 'unchecked'"
-                                        v-on:keypress.space="file.toggled === 'unchecked' ? file.toggled = 'checked' : file.toggled = 'unchecked'"
-                                        class="flex-grow text-start flex items-center h-full min-w-40 focus:outline-none focus:ring focus:ring-inset pl-4"
-                                        tabindex="0">
+                                        class="flex-grow text-start flex items-center h-full min-w-40 pl-4">
                                         <div class="flex items-center min-w-40">
                                             <svg v-if="!file.is_dir" class="mr-2 flex-shrink-0"
                                                 xmlns="http://www.w3.org/2000/svg" width="16" height="16"
@@ -463,7 +465,7 @@ const downloadFiles = async () => {
                                     <td :class="file.toggled === 'checked' ? 'context-active' : 'context'"
                                         class="absolute pl-6 top-0 bottom-0 right-0 hidden group-hover:flex group-focus-within:flex items-center pr-8">
                                         <button v-on:click="downloadFile(file)"
-                                            class="p-2 rounded hover:bg-muted/10 active:bg-muted/20 focus:outline-none focus:ring focus:ring-inset">
+                                            class="p-2 rounded hover:bg-muted/10 active:bg-muted/20 focus-visible:outline-none focus-visible:ring focus-visible:ring-inset">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
                                                 viewBox="0 0 24 24">
                                                 <path fill="none" stroke="currentColor" stroke-linecap="round"

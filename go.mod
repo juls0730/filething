@@ -5,6 +5,7 @@ go 1.23.0
 require github.com/google/uuid v1.6.0
 
 require (
+	github.com/dustin/go-humanize v1.0.1
 	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/labstack/echo/v4 v4.12.0

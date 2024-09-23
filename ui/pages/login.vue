@@ -12,6 +12,7 @@ let password = ref('')
 
 let error = ref('')
 
+let timeout;
 const submitForm = async () => {
     let { data, error: fetchError } = await useAsyncData<User, NuxtError<{ message: string }>>(
         () => $fetch('/api/login', {
@@ -25,12 +26,16 @@ const submitForm = async () => {
 
     if (fetchError.value !== null && fetchError.value.data !== undefined) {
         error.value = fetchError.value.data.message
-        setTimeout(() => error.value = "", 15000)
+        timeout = setTimeout(() => error.value = "", 15000)
     } else if (data.value !== null) {
         setUser(data.value)
         await navigateTo('/home')
     }
 }
+
+onUnmounted(() => {
+    clearTimeout(timeout)
+})
 </script>
 
 <template>

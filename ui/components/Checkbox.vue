@@ -1,6 +1,6 @@
 <template>
     <div v-on:click="toggle()" v-on:keypress.enter="toggle()" v-on:keypress.space="toggle()" tabindex="0"
-        class="w-5 h-5 border rounded cursor-pointer flex items-center justify-center focus:outline-none focus:ring focus:ring-inset"
+        class="w-5 h-5 border rounded cursor-pointer flex items-center justify-center focus-visible:outline-none focus-visible:ring focus-visible:ring-inset"
         :class="state === 'unchecked' ? 'hover:bg-muted/5 active:bg-muted/15' : 'bg-accent/10 hover:bg-accent/15 active:bg-accent/25 text-accent'">
         <div v-if="state === 'some'" class="w-8/12 h-0.5 bg-current rounded-full"></div>
         <span v-else-if="state === 'checked'">

@@ -16,7 +16,7 @@ const emit = defineEmits(['update:modelValue'])
                 <div class="flex justify-between mb-2 items-center">
                     <h3 class="text-xl font-semibold">{{ header }}</h3>
                     <button v-on:click=" $emit('update:modelValue', !modelValue)"
-                        class="p-1 border h-fit rounded-md hover:bg-muted/10 active:bg-muted/20 transition-bg">
+                        class="p-1 border h-fit rounded-md hover:bg-muted/10 active:bg-muted/20 transition-bg focus-visible:outline-none focus-visible:ring focus-visible:ring-inset">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
                             <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
                                 stroke-width="2" d="M18 6L6 18M6 6l12 12" />

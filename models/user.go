@@ -1,6 +1,8 @@
 package models
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/uptrace/bun"
 )
@@ -18,13 +20,15 @@ type SignupData struct {
 
 type User struct {
 	bun.BaseModel `bun:"table:users"`
-	ID            uuid.UUID `bun:"id,pk,type:uuid,default:uuid_generate_v4()" json:"id"`
-	Username      string    `bun:"username,notnull,unique" json:"username"`
-	Email         string    `bun:"email,notnull,unique" json:"email"`
-	PasswordHash  string    `bun:"passwordHash,notnull" json:"-"`
+	ID            uuid.UUID `bun:",pk,type:uuid,default:uuid_generate_v4()" json:"id"`
+	Username      string    `bun:",notnull,unique" json:"username"`
+	Email         string    `bun:",notnull,unique" json:"email"`
+	PasswordHash  string    `bun:",notnull" json:"-"`
 	PlanID        int64     `bun:"plan_id,notnull" json:"-"`
 	Plan          Plan      `bun:"rel:belongs-to,join:plan_id=id" json:"plan"`
 	Usage         int64     `bun:"-" json:"usage"`
+	CreatedAt     time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+	Admin         bool      `bin:"admin,type:bool" json:"is_admin"`
 }
 
 type Session struct {

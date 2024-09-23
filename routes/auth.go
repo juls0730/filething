@@ -64,6 +64,8 @@ func LoginHandler(c echo.Context) error {
 	return c.JSON(http.StatusOK, user)
 }
 
+var firstUserCreated *bool
+
 func SignupHandler(c echo.Context) error {
 	var signupData models.SignupData
 
@@ -87,16 +89,31 @@ func SignupHandler(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "An unknown error occoured!"})
 	}
 
+	if firstUserCreated == nil {
+		count, err := db.NewSelect().Model((*models.User)(nil)).Count(context.Background())
+		if err != nil {
+			return fmt.Errorf("failed to count plans: %w", err)
+		}
+
+		firstUserCreated = new(bool)
+		*firstUserCreated = count != 0
+	}
+
 	user := &models.User{
 		Username:     signupData.Username,
 		Email:        signupData.Email,
 		PasswordHash: string(hash),
 		PlanID:       1, // basic 10GB plan
+		Admin:        !*firstUserCreated,
 	}
 	_, err = db.NewInsert().Model(user).Exec(context.Background())
 
 	if err != nil {
 		return c.JSON(http.StatusConflict, map[string]string{"message": "A user with that email or username already exists!"})
+	}
+
+	if !*firstUserCreated {
+		*firstUserCreated = true
 	}
 
 	err = db.NewSelect().Model(user).WherePK().Relation("Plan").Scan(context.Background())

@@ -8,11 +8,10 @@ import (
 	"filething/middleware"
 	"filething/models"
 	"filething/routes"
-	"filething/ui"
 	"fmt"
 	"net/http"
 	"os"
-	"strings"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	echoMiddleware "github.com/labstack/echo/v4/middleware"
@@ -84,59 +83,30 @@ func main() {
 		api.GET("/files/get/*", routes.GetFiles)
 		api.GET("/files/download*", routes.GetFile)
 		api.POST("/files/delete*", routes.DeleteFiles)
+
+		admin := api.Group("/admin")
+		{
+			admin.Use(middleware.AdminMiddleware())
+			admin.GET("/system-status", routes.SystemStatus)
+			admin.GET("/get-users/:page", routes.GetUsers)
+			admin.GET("/get-total-users", routes.GetUsersCount)
+		}
 	}
 
 	// redirects to the proper pages if you are trying to access one that expects you have/dont have an api key
 	// this isnt explicitly required, but it provides a better experience than doing this same thing clientside
 	e.Use(middleware.AuthCheckMiddleware)
 
-	// calls out to a function set by either server.go server_dev.go based on the value of the dev tag, and hosts
+	// calls out to a function set by either server.go server_dev.go based on the presence of the dev tag, and hosts
 	// either the static files that get embedded into the binary in ui/embed.go or proxies the dev server that gets
 	// run in the provided function
 	initUi(e)
 
-	e.HTTPErrorHandler = customHTTPErrorHandler
+	routes.AppStartTime = time.Now().UTC()
 
 	if err := e.Start(":1323"); err != nil && err != http.ErrServerClosed {
 		fmt.Println("Error starting HTTP server:", err)
 	}
-}
-
-// Custom Error handling since Nuxt relies on the 404 page for dynamic pages we still want api routes to use the default
-// error handling built into echo
-func customHTTPErrorHandler(err error, c echo.Context) {
-	if he, ok := err.(*echo.HTTPError); ok && he.Code == http.StatusNotFound {
-		path := c.Request().URL.Path
-
-		if !strings.HasPrefix(path, "/api") {
-			file, err := ui.DistDirFS.Open("404.html")
-			if err != nil {
-				c.Logger().Error(err)
-			}
-
-			fileInfo, err := file.Stat()
-			if err != nil {
-				c.Logger().Error(err)
-			}
-
-			fileBuf := make([]byte, fileInfo.Size())
-			_, err = file.Read(fileBuf)
-			defer func() {
-				if err := file.Close(); err != nil {
-					panic(err)
-				}
-			}()
-			if err != nil {
-				c.Logger().Error(err)
-				panic(err)
-			}
-
-			c.HTML(http.StatusNotFound, string(fileBuf))
-			return
-		}
-	}
-
-	c.Echo().DefaultHTTPErrorHandler(err, c)
 }
 
 // creates tables in the db if they dont already exist

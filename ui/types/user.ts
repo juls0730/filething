@@ -1,5 +1,5 @@
 export interface User {
-    id: number,
+    id: string,
     username: string,
     email: string,
     plan: {
@@ -7,4 +7,6 @@ export interface User {
         max_storage: number
     },
     usage: number,
+    created_at: string,
+    is_admin: boolean,
 }
