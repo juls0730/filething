@@ -10,8 +10,18 @@
 To run filething, run
 
 ```BASH
-go generate
+bun --cwd=./ui install
+bun --bun --cwd=./ui run generate
 go build -tags netgo -ldflags=-s
+DB_HOST=localhost:5432 DB_NAME=filething DB_USER=postgres STORAGE_PATH=data ./filething
+```
+
+Or if you want to run filething with SSR (you will need node on the target server), run
+
+```BASH
+bun --cwd=./ui install
+bun --bun --cwd=./ui run build
+go build -tags netgo,ssr -ldflags=-s
 DB_HOST=localhost:5432 DB_NAME=filething DB_USER=postgres STORAGE_PATH=data ./filething
 ```
 

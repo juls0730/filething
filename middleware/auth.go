@@ -26,10 +26,7 @@ func SessionMiddleware(db *bun.DB) echo.MiddlewareFunc {
 				return echo.NewHTTPError(http.StatusBadRequest, "Bad request")
 			}
 
-			sessionToken := cookie.Value
-
-			// Query the session and user data from PostgreSQL
-			sessionId, err := uuid.Parse(sessionToken)
+			sessionId, err := uuid.Parse(cookie.Value)
 			if err != nil {
 				return echo.NewHTTPError(http.StatusBadRequest, "Bad request")
 			}

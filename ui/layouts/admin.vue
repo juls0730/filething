@@ -9,16 +9,14 @@ definePageMeta({
 const user = await getUser();
 const route = useRoute();
 
-console.log("setup", route.path)
-
 const accordionMapping = {
-    '/admin': 'item-1',
-    '/admin/config/settings': 'item-2',
     '/admin/users': '',
+    '/admin/config/settings': 'item-2',
+    '/admin': 'item-1',
 };
 
 const getActiveAccordion = () => {
-    const path = Object.keys(accordionMapping).find(key => route.path === key);
+    const path = Object.keys(accordionMapping).find(key => route.path.startsWith(key));
     return path ? accordionMapping[path] : null;
 };
 
@@ -63,7 +61,7 @@ const isActiveLink = (path: string) => route.path === path;
                         </VlAccordionItem>
                         <NuxtLink
                             class="vl-accordion-header focus-visible:outline-none focus-visible:ring focus-visible:ring-inset flex flex-1 justify-between items-center w-full transition-bg px-4 py-3.5 text-sm"
-                            :class="isActiveLink('/admin/users') ? 'bg-muted/15' : 'hover:bg-muted/10'"
+                            :class="route.path.startsWith('/admin/users') ? 'bg-muted/15' : 'hover:bg-muted/10'"
                             to="/admin/users">
                             Users
                         </NuxtLink>

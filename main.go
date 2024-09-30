@@ -1,5 +1,3 @@
-//go:generate sh -c "NODE_ENV=production bun --cwd=./ui install"
-//go:generate sh -c "NODE_ENV=production bun --bun --cwd=./ui run generate"
 package main
 
 import (
@@ -87,9 +85,12 @@ func main() {
 		admin := api.Group("/admin")
 		{
 			admin.Use(middleware.AdminMiddleware())
-			admin.GET("/system-status", routes.SystemStatus)
-			admin.GET("/get-users/:page", routes.GetUsers)
-			admin.GET("/get-total-users", routes.GetUsersCount)
+			admin.GET("/status", routes.SystemStatus)
+			admin.GET("/plans", routes.GetPlans)
+			admin.GET("/users", routes.GetUsers)
+			admin.GET("/users/:id", routes.GetUser)
+			admin.POST("/users/edit/:id", routes.EditUser)
+			admin.POST("/users/new", routes.CreateUser)
 		}
 	}
 

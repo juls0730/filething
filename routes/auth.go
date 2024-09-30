@@ -70,6 +70,7 @@ func SignupHandler(c echo.Context) error {
 	var signupData models.SignupData
 
 	if err := c.Bind(&signupData); err != nil {
+		fmt.Println(err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "An unknown error occoured!"})
 	}
 
@@ -86,6 +87,7 @@ func SignupHandler(c echo.Context) error {
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(signupData.Password), 12)
 	if err != nil {
+		fmt.Println(err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "An unknown error occoured!"})
 	}
 
@@ -118,6 +120,7 @@ func SignupHandler(c echo.Context) error {
 
 	err = db.NewSelect().Model(user).WherePK().Relation("Plan").Scan(context.Background())
 	if err != nil {
+		fmt.Println(err)
 		return c.JSON(http.StatusNotFound, map[string]string{"message": "An unknown error occoured!"})
 	}
 
@@ -130,6 +133,7 @@ func SignupHandler(c echo.Context) error {
 	session, err := GenerateSessionToken(db, user.ID)
 
 	if err != nil {
+		fmt.Println(err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "An unknown error occoured!"})
 	}
 
@@ -157,20 +161,49 @@ func GenerateSessionToken(db *bun.DB, userId uuid.UUID) (*models.Session, error)
 }
 
 func GetUser(c echo.Context) error {
-	user := c.Get("user")
-	if user == nil {
-		return c.JSON(http.StatusNotFound, map[string]string{"message": "User not found"})
+	if c.Param("id") == "" {
+		user := c.Get("user")
+		if user == nil {
+			return c.JSON(http.StatusNotFound, map[string]string{"message": "User not found"})
+		}
+
+		basePath := fmt.Sprintf("%s/%s/", os.Getenv("STORAGE_PATH"), user.(*models.User).ID)
+		storageUsage, err := calculateStorageUsage(basePath)
+		if err != nil {
+			return err
+		}
+
+		user.(*models.User).Usage = storageUsage
+
+		return c.JSON(http.StatusOK, user.(*models.User))
+	} else {
+		// get a user from the db using the id parameter, this *should* only be used for admin since /api/admin/users/:id has
+		// a middleware that checks if the user is an admin, and it should be impossible to pass a param to this endpoint if it isnt that route
+		db := c.Get("db").(*bun.DB)
+
+		user := new(models.User)
+		userId, err := uuid.Parse(c.Param("id"))
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"message": "An unknown error occoured!"})
+		}
+
+		user.ID = userId
+
+		err = db.NewSelect().Model(user).WherePK().Relation("Plan").Scan(context.Background())
+		if err != nil {
+			return c.JSON(http.StatusNotFound, map[string]string{"message": "User not found"})
+		}
+
+		basePath := fmt.Sprintf("%s/%s/", os.Getenv("STORAGE_PATH"), user.ID)
+		storageUsage, err := calculateStorageUsage(basePath)
+		if err != nil {
+			return err
+		}
+
+		user.Usage = storageUsage
+
+		return c.JSON(http.StatusOK, user)
 	}
-
-	basePath := fmt.Sprintf("%s/%s/", os.Getenv("STORAGE_PATH"), user.(*models.User).ID)
-	storageUsage, err := calculateStorageUsage(basePath)
-	if err != nil {
-		return err
-	}
-
-	user.(*models.User).Usage = storageUsage
-
-	return c.JSON(http.StatusOK, user.(*models.User))
 }
 
 func LogoutHandler(c echo.Context) error {

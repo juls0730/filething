@@ -1,13 +1,10 @@
 <script setup lang="ts">
-import { useUser } from '~/composables/useUser'
-const { getUser } = useUser()
-
 definePageMeta({
     middleware: ["auth", "admin"],
     layout: "admin"
 });
 
-let systemStatusData = await $fetch("/api/admin/system-status")
+let {data: systemStatusData, refresh} = await useFetch("/api/admin/status")
 
 const calculateTimeSince = (time) => {
     const now = new Date();
@@ -29,23 +26,22 @@ const calculateTimeSince = (time) => {
     return timeParts.join(', ');
 }
 
-let uptime = ref('');
-let lastGcTime = ref('');
+let uptime = ref(calculateTimeSince(systemStatusData.value.uptime));
+let lastGcTime = ref(calculateTimeSince(systemStatusData.value.last_gc_time));
 
 let systemStatusInterval;
 let timeInterval;
 
 const updateTime = () => {
-    uptime.value = calculateTimeSince(systemStatusData.uptime);
-    lastGcTime.value = calculateTimeSince(systemStatusData.last_gc_time)
+    uptime.value = calculateTimeSince(systemStatusData.value.uptime);
+    lastGcTime.value = calculateTimeSince(systemStatusData.value.last_gc_time)
 };
 
 onMounted(() => {
     updateTime();
 
     systemStatusInterval = setInterval(async () => {
-        console.log("refresh")
-        systemStatusData = await $fetch("/api/admin/system-status")
+        refresh()
     }, 5000);
 
     timeInterval = setInterval(updateTime, 1000);

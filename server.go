@@ -1,19 +1,37 @@
-//go:build !dev
-// +build !dev
+//go:build !dev && !ssr
+// +build !dev,!ssr
 
 package main
 
 import (
 	"filething/ui"
+	"io/fs"
 	"net/http"
+	"path/filepath"
 	"strings"
 
 	"github.com/labstack/echo/v4"
 )
 
+type embeddedFS struct {
+	baseFS fs.FS
+	prefix string
+}
+
+func (fs *embeddedFS) Open(name string) (fs.File, error) {
+	// Prepend the prefix to the requested file name
+	publicPath := filepath.Join(fs.prefix, name)
+	return fs.baseFS.Open(publicPath)
+}
+
+var publicFS = &embeddedFS{
+	baseFS: ui.DistDirFS,
+	prefix: "public/",
+}
+
 func init() {
 	initUi = func(e *echo.Echo) {
-		e.GET("/*", echo.StaticDirectoryHandler(ui.DistDirFS, false))
+		// e.GET("/*", echo.StaticDirectoryHandler(publicFS, false))
 
 		e.HTTPErrorHandler = customHTTPErrorHandler
 	}
@@ -26,7 +44,7 @@ func customHTTPErrorHandler(err error, c echo.Context) {
 		path := c.Request().URL.Path
 
 		if !strings.HasPrefix(path, "/api") {
-			file, err := ui.DistDirFS.Open("404.html")
+			file, err := publicFS.Open("404.html")
 			if err != nil {
 				c.Logger().Error(err)
 			}

@@ -5,51 +5,204 @@ import (
 	"filething/models"
 	"fmt"
 	"net/http"
+	"os"
+	"regexp"
 	"runtime"
 	"strconv"
 	"time"
 
 	"github.com/dustin/go-humanize"
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/uptrace/bun"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func GetUsers(c echo.Context) error {
 	db := c.Get("db").(*bun.DB)
 
-	pageStr := c.Param("page")
+	count, err := db.NewSelect().Model((*models.User)(nil)).Count(context.Background())
+
+	if err != nil {
+		fmt.Println(err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Invalid page number"})
+	}
+
+	// this should be a query param not a URL param
+	pageStr := c.QueryParam("page")
+	if pageStr == "" {
+		pageStr = "0"
+	}
+
 	page, err := strconv.Atoi(pageStr)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "Invalid page number")
+		page = 0
 	}
 
 	offset := page * 30
 	limit := 30
+
+	if offset > count {
+		return c.JSON(http.StatusBadRequest, map[string]string{"message": "Invalid page number"})
+	}
 
 	var users []models.User
 	err = db.NewSelect().
 		Model(&users).
 		Limit(limit).
 		Offset(offset).
+		Order("created_at ASC").
 		Scan(context.Background())
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to retrieve users")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to retrieve users"})
 	}
 
-	return c.JSON(http.StatusOK, users)
+	if users == nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"message": "Invalid page number"})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{"users": users, "total_users": count})
 }
 
-func GetUsersCount(c echo.Context) error {
+type UserEdit struct {
+	Username string `json:"username"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
+	PlanID   int64  `json:"plan_id"`
+	Admin    bool   `json:"is_admin"`
+}
+
+func EditUser(c echo.Context) error {
 	db := c.Get("db").(*bun.DB)
+	id := c.Param("id")
 
-	count, err := db.NewSelect().Model(&models.User{}).Count(context.Background())
-
-	if err != nil {
+	var userEditData UserEdit
+	if err := c.Bind(&userEditData); err != nil {
 		fmt.Println(err)
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to retrieve users")
+		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "An unknown error occoured!"})
 	}
 
-	return c.JSON(http.StatusOK, map[string]int{"total_users": count})
+	if !regexp.MustCompile(`^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,4}$`).MatchString(userEditData.Email) {
+		return c.JSON(http.StatusBadRequest, map[string]string{"message": "A valid email is required!"})
+	}
+
+	plan := models.Plan{
+		ID: userEditData.PlanID,
+	}
+	planCount, err := db.NewSelect().Model(&plan).WherePK().Count(context.Background())
+	if err != nil || planCount == 0 {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Invalid plan id!"})
+	}
+
+	userId, err := uuid.Parse(id)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"message": "An unknown error occoured!"})
+	}
+
+	var userData models.User
+	userData.ID = userId
+
+	err = db.NewSelect().Model(&userData).WherePK().Relation("Plan").Scan(context.Background())
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "An unknown error occoured!"})
+	}
+
+	if userEditData.Username != "" {
+		userData.Username = userEditData.Username
+	}
+
+	if userEditData.Email != "" {
+		userData.Email = userEditData.Email
+	}
+
+	if userEditData.Password != "" {
+		hash, err := bcrypt.GenerateFromPassword([]byte(userEditData.Password), 12)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"message": "An unknown error occoured!"})
+		}
+
+		userData.PasswordHash = string(hash)
+	}
+
+	if userEditData.PlanID != 0 {
+		userData.PlanID = userEditData.PlanID
+	}
+
+	userData.Admin = userEditData.Admin
+
+	// update the user, but, if the password is empty, but dont use OmitZero because it will ignore is_admin if it's false
+	_, err = db.NewUpdate().Model(&userData).WherePK().Exec(context.Background())
+	if err != nil {
+		fmt.Println(err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "An unknown error occoured!"})
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{"message": "Successfully updated user"})
+}
+
+func GetPlans(c echo.Context) error {
+	db := c.Get("db").(*bun.DB)
+
+	var plans []models.Plan
+	err := db.NewSelect().Model(&plans).Scan(context.Background())
+	if err != nil {
+		fmt.Println(err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "An unknown error occoured!"})
+	}
+
+	return c.JSON(http.StatusOK, plans)
+}
+
+func CreateUser(c echo.Context) error {
+	var signupData models.SignupData
+
+	if err := c.Bind(&signupData); err != nil {
+		fmt.Println(err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "An unknown error occoured!"})
+	}
+
+	if signupData.Username == "" || signupData.Password == "" || signupData.Email == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"message": "A password, username and email are required!"})
+	}
+
+	// if email is not valid
+	if !regexp.MustCompile(`^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,4}$`).MatchString(signupData.Email) {
+		return c.JSON(http.StatusBadRequest, map[string]string{"message": "A valid email is required!"})
+	}
+
+	db := c.Get("db").(*bun.DB)
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(signupData.Password), 12)
+	if err != nil {
+		fmt.Println(err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "An unknown error occoured!"})
+	}
+
+	user := &models.User{
+		Username:     signupData.Username,
+		Email:        signupData.Email,
+		PasswordHash: string(hash),
+		PlanID:       1, // basic 10GB plan
+	}
+	_, err = db.NewInsert().Model(user).Exec(context.Background())
+
+	if err != nil {
+		return c.JSON(http.StatusConflict, map[string]string{"message": "A user with that email or username already exists!"})
+	}
+
+	err = db.NewSelect().Model(user).WherePK().Relation("Plan").Scan(context.Background())
+	if err != nil {
+		fmt.Println(err)
+		return c.JSON(http.StatusNotFound, map[string]string{"message": "An unknown error occoured!"})
+	}
+
+	err = os.Mkdir(fmt.Sprintf("%s/%s", os.Getenv("STORAGE_PATH"), user.ID), os.ModePerm)
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{"message": "Successfully created user"})
 }
 
 // Stolen from Gitea https://github.com/go-gitea/gitea

@@ -7,7 +7,7 @@ export const useUser = () => {
 
     // Fetch the user only if it's uninitialized (i.e., null)
     const getUser = async () => {
-        if (!user.value.fetched && import.meta.client) {
+        if (!user.value.fetched) {
             await fetchUser()
         }
 

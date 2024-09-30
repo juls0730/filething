@@ -45,9 +45,9 @@ onUnmounted(() => {
         <div
             class="flex flex-col text-center bg-surface border border-muted/20 shadow-md px-10 py-8 rounded-2xl min-w-0 max-w-[313px]">
             <h2 class="font-semibold text-2xl mb-2">Signup</h2>
-            <Input v-model="username" placeholder="Username..." />
-            <Input v-model="email" placeholder="Email..." />
-            <Input v-model="password" type="password" placeholder="Password..." />
+            <Input class="my-2" v-model="username" placeholder="Username..." />
+            <Input class="my-2" v-model="email" placeholder="Email..." />
+            <Input class="my-2" v-model="password" type="password" placeholder="Password..." />
             <p class="text-love">{{ error }}</p>
             <button @click="submitForm"
                 class="py-2 px-4 my-2 bg-pine/10 text-pine rounded-md transition-colors hover:bg-pine/15 active:bg-pine/25 focus:outline-none focus:ring focus:ring-inset">Login</button>

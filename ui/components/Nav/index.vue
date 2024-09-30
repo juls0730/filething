@@ -87,7 +87,7 @@ const changeTheme = () => {
         </nav>
         <nav class="hidden md:flex" aria-label="Main">
             <ul class="flex items-center gap-3" role="list">
-                <li>
+                <!-- <li>
                     <a href="#"
                         class="px-2.5 py-1.5 text-[15px] font-semibold transition-bg duration-300 hover:bg-muted/10 rounded-md focus-visible:outline-none focus-visible:ring focus-visible:ring-inset">Link</a>
                 </li>
@@ -99,7 +99,7 @@ const changeTheme = () => {
                     <a href="#"
                         class="px-2.5 py-1.5 text-[15px] font-semibold transition-bg duration-300 hover:bg-muted/10 rounded-md focus-visible:outline-none focus-visible:ring focus-visible:ring-inset">Link</a>
                 </li>
-                <li class="h-6 border-r"></li>
+                <li class="h-6 border-r"></li> -->
                 <li v-if="user">
                     <span class="group relative flex items-center">
                         <button
