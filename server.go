@@ -31,7 +31,7 @@ var publicFS = &embeddedFS{
 
 func init() {
 	initUi = func(e *echo.Echo) {
-		// e.GET("/*", echo.StaticDirectoryHandler(publicFS, false))
+		e.GET("/*", echo.StaticDirectoryHandler(publicFS, false))
 
 		e.HTTPErrorHandler = customHTTPErrorHandler
 	}
