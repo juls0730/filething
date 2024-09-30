@@ -13,7 +13,7 @@ let password = ref('')
 
 let error = ref('')
 
-let timeout;
+let timeout: NodeJS.Timeout;
 const submitForm = async () => {
     let { data, error: fetchError } = await useAsyncData<User, NuxtError<{ message: string }>>(
         () => $fetch('/api/signup', {

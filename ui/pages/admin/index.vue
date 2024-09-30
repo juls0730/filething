@@ -1,14 +1,26 @@
 <script setup lang="ts">
+import type { NuxtError } from '#app';
+
 definePageMeta({
     middleware: ["auth", "admin"],
     layout: "admin"
 });
 
-let {data: systemStatusData, refresh} = await useFetch("/api/admin/status")
+let {data: systemStatusData, refresh} = await useFetch<
+{ uptime: string, num_goroutine: number, cur_mem_usage: string, total_mem_usage: string,
+    mem_obtained: string, ptr_lookup_times: number, mem_allocations: number, mem_frees: number, cur_heap_usage: string, heap_mem_obtained: string, 
+    heap_mem_idle: string, heap_mem_inuse: string, heap_mem_release: string, heap_objects: number, bootstrap_stack_usage: string, stack_mem_obtained: string, 
+    mspan_structures_usage: string, mspan_structures_obtained: string, mcache_structures_usage: string, mcache_structures_obtained: string, 
+    buck_hash_sys: string, gc_sys: string, other_sys: string, next_gc: string, last_gc_time: string, pause_total_ns: string, pause_ns: string, num_gc: number 
+}, NuxtError<{ message: string }>>("/api/admin/status")
 
-const calculateTimeSince = (time) => {
-    const now = new Date();
-    const date = new Date(time);
+if (systemStatusData.value === null) {
+    throw new Error("Failed to fetch system status")
+}
+
+const calculateTimeSince = (time: string) => {
+    const now: number = new Date().getTime();
+    const date: number = new Date(time).getTime();
     const diffInSeconds = Math.floor((now - date) / 1000);
 
     const days = Math.floor(diffInSeconds / (3600 * 24));
@@ -29,10 +41,14 @@ const calculateTimeSince = (time) => {
 let uptime = ref(calculateTimeSince(systemStatusData.value.uptime));
 let lastGcTime = ref(calculateTimeSince(systemStatusData.value.last_gc_time));
 
-let systemStatusInterval;
-let timeInterval;
+let systemStatusInterval: NodeJS.Timeout;
+let timeInterval: NodeJS.Timeout;
 
 const updateTime = () => {
+    if (systemStatusData.value === null) {
+        throw new Error("Failed to fetch system status")
+    }
+
     uptime.value = calculateTimeSince(systemStatusData.value.uptime);
     lastGcTime.value = calculateTimeSince(systemStatusData.value.last_gc_time)
 };
@@ -57,7 +73,7 @@ onUnmounted(() => {
     <div class="w-full overflow-hidden rounded-md border h-fit text-[15px]">
         <h4 class="bg-surface px-3.5 py-3 border-b">System Status</h4>
         <div class="p-3.5 text-sm">
-            <dl class="flex-wrap">
+            <dl class="flex-wrap" v-if="systemStatusData !== null">
                 <dt>Server Uptime</dt>
                 <dd>{{ uptime }}</dd>
                 <dt>Current Goroutine</dt>

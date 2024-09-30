@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { NuxtError } from '#app';
 import type { User } from '~/types/user';
 
 definePageMeta({
@@ -12,7 +13,7 @@ let password = ref('')
 
 let error = ref('')
 
-let timeout;
+let timeout: NodeJS.Timeout;
 const submitForm = async () => {
     let { data, error: fetchError } = await useAsyncData<User, NuxtError<{ message: string }>>(
         () => $fetch('/api/admin/users/new', {
@@ -45,11 +46,11 @@ onUnmounted(() => {
             </h4>
             <div class="p-4">
                 <label for="username" class="block max-w-64 text-sm">Username</label>
-                <Input v-model="username" :value="username" id="username" placeholder="Username" class="w-full mb-2" />
+                <Input v-model="username" :value="username" id="username" placeholder="Username" autocomplete="off" class="w-full mb-2" />
                 <label for="email" class="block max-w-64 text-sm">Email</label>
-                <Input v-model="email" :value="email" id="email" placeholder="Email" class="w-full mb-2" />
+                <Input v-model="email" :value="email" id="email" placeholder="Email" autocomplete="off" class="w-full mb-2" />
                 <label for="password" class="block max-w-64 text-sm">Password</label>
-                <Input v-model="password" id="password" type="password" placeholder="Password" class="w-full mb-2" />
+                <Input v-model="password" :value="password" id="password" type="password" placeholder="Password" autocomplete="off" class="w-full mb-2" />
                 <p class="text-love mb-2">{{ error }}</p>
                 <div>
                     <button

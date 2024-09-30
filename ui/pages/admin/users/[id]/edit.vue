@@ -20,7 +20,7 @@ const updateUser = async () => {
     let body = {
         username: username.value,
         email: email.value,
-        password: password.value,
+        password: password.value as string || undefined,
         plan_id: plan_id.value,
         is_admin: is_admin.value === 'checked' ? true : false,
     }

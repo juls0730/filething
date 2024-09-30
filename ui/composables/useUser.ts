@@ -1,9 +1,22 @@
-import type { User } from '~/types/user'
+import type { Plan, User } from '~/types/user'
 import { useFetch } from '#app'
+
+const uninitializedUser = {
+    id: "",
+    username: "",
+    email: "",
+    plan: <Plan>{
+        id: 0,
+        max_storage: 0
+    },
+    usage: 0,
+    created_at: "",
+    is_admin: false
+}
 
 export const useUser = () => {
     // Global state for storing the user
-    const user = useState('user', () => { return { fetched: false, user: <User>{} } })
+    const user = useState('user', () => { return { fetched: false, user: uninitializedUser } })
 
     // Fetch the user only if it's uninitialized (i.e., null)
     const getUser = async () => {
@@ -24,9 +37,9 @@ export const useUser = () => {
             }
 
             user.value.user = data.value
-        } catch (e) {
+        } catch (e: any) {
             console.error(e.message)
-            user.value.user = {}
+            user.value.user = uninitializedUser
         }
     }
 
@@ -37,7 +50,7 @@ export const useUser = () => {
 
     // Clear the user data (e.g., on logout)
     const resetUser = () => {
-        user.value.user = {}
+        user.value.user = uninitializedUser
     }
 
     return {

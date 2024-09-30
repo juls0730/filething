@@ -33,8 +33,7 @@ const fetchNextPage = async () => {
                 </h4>
                 <NuxtLink to="/admin/users/new">
                     <button
-                        class="transition-bg bg-pine/10 text-pine px-2 py-1.5 rounded-md hover:bg-pine/15 active:bg-pine/25 h-fit text-xs"
-                        v-on:click="updateUser">
+                        class="transition-bg bg-pine/10 text-pine px-2 py-1.5 rounded-md hover:bg-pine/15 active:bg-pine/25 h-fit text-xs">
                         Create User Account
                     </button>
                 </NuxtLink>

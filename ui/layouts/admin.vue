@@ -9,7 +9,7 @@ definePageMeta({
 const user = await getUser();
 const route = useRoute();
 
-const accordionMapping = {
+const accordionMapping: Record<string, string> = {
     '/admin/users': '',
     '/admin/config/settings': 'item-2',
     '/admin': 'item-1',
@@ -30,7 +30,7 @@ const isActiveLink = (path: string) => route.path === path;
             <div class="w-auto md:w-60 flex-shrink-0">
                 <aside class="rounded-md border overflow-hidden w-full h-fit">
                     <div class="px-4 py-3.5 bg-surface border-b">Admin Settings</div>
-                    <VlAccordion type="single" :defaultValue="getActiveAccordion()">
+                    <VlAccordion type="single" :defaultValue="getActiveAccordion() || undefined">
                         <VlAccordionItem value="item-1" class="text-sm">
                             <VlAccordionTrigger class="transition-bg hover:bg-muted/10 px-4 py-3.5">
                                 Maintenance
