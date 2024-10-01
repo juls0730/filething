@@ -2,6 +2,7 @@ package routes
 
 import (
 	"context"
+	"filething/db"
 	"filething/models"
 	"fmt"
 	"net/http"
@@ -9,31 +10,34 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
-	"github.com/labstack/echo/v4"
 	"github.com/uptrace/bun"
 	"golang.org/x/crypto/bcrypt"
 )
 
-func LoginHandler(c echo.Context) error {
-	var loginData models.LoginData
+func LoginHandler(c fiber.Ctx) error {
+	loginData := new(models.LoginData)
 
-	if err := c.Bind(&loginData); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "An unknown error occoured!"})
+	if err := c.Bind().JSON(loginData); err != nil {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"message": "An unknown error occoured!"})
 	}
 
+	// Validate required fields
 	if loginData.UsernameOrEmail == "" || loginData.Password == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"message": "A password, and username or email are required!"})
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"message": "A Username/Email and Password are required"})
 	}
 
-	db := c.Get("db").(*bun.DB)
+	db := db.GetDB()
 
 	user := new(models.User)
-	err := db.NewSelect().Model(user).Where("email = ?", loginData.UsernameOrEmail).Relation("Plan").Scan(context.Background())
-	if err != nil {
-		err := db.NewSelect().Model(user).Where("username = ?", loginData.UsernameOrEmail).Relation("Plan").Scan(context.Background())
+	var err error
+
+	// Try both username and email for login attempts
+	if err = db.NewSelect().Model(user).Where("email = ?", loginData.UsernameOrEmail).Relation("Plan").Scan(context.Background()); err != nil {
+		err = db.NewSelect().Model(user).Where("username = ?", loginData.UsernameOrEmail).Relation("Plan").Scan(context.Background())
 		if err != nil {
-			return c.JSON(http.StatusNotFound, map[string]string{"message": "User with that username or email not found!"})
+			return c.Status(http.StatusNotFound).JSON(fiber.Map{"message": "User not found"})
 		}
 	}
 
@@ -46,49 +50,48 @@ func LoginHandler(c echo.Context) error {
 	user.Usage = storageUsage
 
 	session, err := GenerateSessionToken(db, user.ID)
-
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "An unknown error occoured!"})
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"message": "Internal server error"})
 	}
 
 	expiration := time.Now().Add(time.Hour * 24 * 365 * 100)
 
-	c.SetCookie(&http.Cookie{
+	c.Cookie(&fiber.Cookie{
 		Name:     "sessionToken",
 		Value:    session.ID.String(),
-		SameSite: http.SameSiteStrictMode,
+		SameSite: "Strict",
 		Expires:  expiration,
 		Path:     "/",
 	})
 
-	return c.JSON(http.StatusOK, user)
+	// Return user data with status code 200 (OK)
+	return c.JSON(user)
 }
 
 var firstUserCreated *bool
 
-func SignupHandler(c echo.Context) error {
-	var signupData models.SignupData
+func SignupHandler(c fiber.Ctx) error {
+	signupData := new(models.SignupData)
 
-	if err := c.Bind(&signupData); err != nil {
-		fmt.Println(err)
-		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "An unknown error occoured!"})
+	if err := c.Bind().JSON(signupData); err != nil {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"message": "An unknown error occoured!"})
 	}
 
 	if signupData.Username == "" || signupData.Password == "" || signupData.Email == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"message": "A password, username and email are required!"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "A password, username and email are required!"})
 	}
 
 	// if email is not valid
 	if !regexp.MustCompile(`^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,4}$`).MatchString(signupData.Email) {
-		return c.JSON(http.StatusBadRequest, map[string]string{"message": "A valid email is required!"})
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"message": "A valid email is required!"})
 	}
 
-	db := c.Get("db").(*bun.DB)
+	db := db.GetDB()
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(signupData.Password), 12)
 	if err != nil {
 		fmt.Println(err)
-		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "An unknown error occoured!"})
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"message": "An unknown error occoured!"})
 	}
 
 	if firstUserCreated == nil {
@@ -111,7 +114,7 @@ func SignupHandler(c echo.Context) error {
 	_, err = db.NewInsert().Model(user).Exec(context.Background())
 
 	if err != nil {
-		return c.JSON(http.StatusConflict, map[string]string{"message": "A user with that email or username already exists!"})
+		return c.Status(http.StatusConflict).JSON(fiber.Map{"message": "A user with that email or username already exists!"})
 	}
 
 	if !*firstUserCreated {
@@ -121,7 +124,7 @@ func SignupHandler(c echo.Context) error {
 	err = db.NewSelect().Model(user).WherePK().Relation("Plan").Scan(context.Background())
 	if err != nil {
 		fmt.Println(err)
-		return c.JSON(http.StatusNotFound, map[string]string{"message": "An unknown error occoured!"})
+		return c.Status(http.StatusNotFound).JSON(fiber.Map{"message": "An unknown error occoured!"})
 	}
 
 	err = os.Mkdir(fmt.Sprintf("%s/%s", os.Getenv("STORAGE_PATH"), user.ID), os.ModePerm)
@@ -134,20 +137,20 @@ func SignupHandler(c echo.Context) error {
 
 	if err != nil {
 		fmt.Println(err)
-		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "An unknown error occoured!"})
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"message": "An unknown error occoured!"})
 	}
 
 	expiration := time.Now().Add(time.Hour * 24 * 365 * 100)
 
-	c.SetCookie(&http.Cookie{
+	c.Cookie(&fiber.Cookie{
 		Name:     "sessionToken",
 		Value:    session.ID.String(),
-		SameSite: http.SameSiteStrictMode,
+		SameSite: "Strict",
 		Expires:  expiration,
 		Path:     "/",
 	})
 
-	return c.JSON(http.StatusOK, user)
+	return c.Status(http.StatusOK).JSON(user)
 }
 
 func GenerateSessionToken(db *bun.DB, userId uuid.UUID) (*models.Session, error) {
@@ -160,11 +163,11 @@ func GenerateSessionToken(db *bun.DB, userId uuid.UUID) (*models.Session, error)
 	return session, err
 }
 
-func GetUser(c echo.Context) error {
-	if c.Param("id") == "" {
-		user := c.Get("user")
+func GetUser(c fiber.Ctx) error {
+	if c.Params("id") == "" {
+		user := c.Locals("user")
 		if user == nil {
-			return c.JSON(http.StatusNotFound, map[string]string{"message": "User not found"})
+			return c.Status(http.StatusNotFound).JSON(fiber.Map{"message": "User not found"})
 		}
 
 		basePath := fmt.Sprintf("%s/%s/", os.Getenv("STORAGE_PATH"), user.(*models.User).ID)
@@ -175,23 +178,23 @@ func GetUser(c echo.Context) error {
 
 		user.(*models.User).Usage = storageUsage
 
-		return c.JSON(http.StatusOK, user.(*models.User))
+		return c.Status(http.StatusOK).JSON(user.(*models.User))
 	} else {
 		// get a user from the db using the id parameter, this *should* only be used for admin since /api/admin/users/:id has
 		// a middleware that checks if the user is an admin, and it should be impossible to pass a param to this endpoint if it isnt that route
-		db := c.Get("db").(*bun.DB)
+		db := db.GetDB()
 
 		user := new(models.User)
-		userId, err := uuid.Parse(c.Param("id"))
+		userId, err := uuid.Parse(c.Params("id"))
 		if err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{"message": "An unknown error occoured!"})
+			return c.Status(http.StatusBadRequest).JSON(fiber.Map{"message": "An unknown error occoured!"})
 		}
 
 		user.ID = userId
 
 		err = db.NewSelect().Model(user).WherePK().Relation("Plan").Scan(context.Background())
 		if err != nil {
-			return c.JSON(http.StatusNotFound, map[string]string{"message": "User not found"})
+			return c.Status(http.StatusNotFound).JSON(fiber.Map{"message": "User not found"})
 		}
 
 		basePath := fmt.Sprintf("%s/%s/", os.Getenv("STORAGE_PATH"), user.ID)
@@ -202,24 +205,21 @@ func GetUser(c echo.Context) error {
 
 		user.Usage = storageUsage
 
-		return c.JSON(http.StatusOK, user)
+		return c.Status(http.StatusOK).JSON(user)
 	}
 }
 
-func LogoutHandler(c echo.Context) error {
-	db := c.Get("db").(*bun.DB)
+func LogoutHandler(c fiber.Ctx) error {
+	db := db.GetDB()
 
-	cookie, err := c.Cookie("sessionToken")
-	if err != nil {
-		if err == http.ErrNoCookie {
-			return echo.NewHTTPError(http.StatusUnauthorized, "Session token missing")
-		}
-		return echo.NewHTTPError(http.StatusBadRequest, "Bad request")
+	cookie := c.Cookies("sessionToken")
+	if cookie == "" {
+		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{"message": "Session token missing"})
 	}
 
-	sessionId, err := uuid.Parse(cookie.Value)
+	sessionId, err := uuid.Parse(cookie)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "Bad request")
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"message": "Bad request"})
 	}
 
 	session := &models.Session{
@@ -229,8 +229,8 @@ func LogoutHandler(c echo.Context) error {
 
 	if err != nil {
 		fmt.Println(err)
-		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "An unknown error occoured!"})
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"message": "An unknown error occoured!"})
 	}
 
-	return c.JSON(http.StatusOK, map[string]string{"message": "Succesfully logged out"})
+	return c.Status(http.StatusOK).JSON(fiber.Map{"message": "Succesfully logged out"})
 }

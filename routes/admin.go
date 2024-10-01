@@ -2,6 +2,7 @@ package routes
 
 import (
 	"context"
+	"filething/db"
 	"filething/models"
 	"fmt"
 	"net/http"
@@ -12,24 +13,23 @@ import (
 	"time"
 
 	"github.com/dustin/go-humanize"
+	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
-	"github.com/labstack/echo/v4"
-	"github.com/uptrace/bun"
 	"golang.org/x/crypto/bcrypt"
 )
 
-func GetUsers(c echo.Context) error {
-	db := c.Get("db").(*bun.DB)
+func GetUsers(c fiber.Ctx) error {
+	db := db.GetDB()
 
 	count, err := db.NewSelect().Model((*models.User)(nil)).Count(context.Background())
 
 	if err != nil {
 		fmt.Println(err)
-		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Invalid page number"})
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"message": "Invalid page number"})
 	}
 
 	// this should be a query param not a URL param
-	pageStr := c.QueryParam("page")
+	pageStr := c.Query("page")
 	if pageStr == "" {
 		pageStr = "0"
 	}
@@ -43,7 +43,7 @@ func GetUsers(c echo.Context) error {
 	limit := 30
 
 	if offset > count {
-		return c.JSON(http.StatusBadRequest, map[string]string{"message": "Invalid page number"})
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"message": "Invalid page number"})
 	}
 
 	var users []models.User
@@ -54,14 +54,14 @@ func GetUsers(c echo.Context) error {
 		Order("created_at ASC").
 		Scan(context.Background())
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to retrieve users"})
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"message": "Failed to retrieve users"})
 	}
 
 	if users == nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"message": "Invalid page number"})
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"message": "Invalid page number"})
 	}
 
-	return c.JSON(http.StatusOK, map[string]interface{}{"users": users, "total_users": count})
+	return c.Status(http.StatusOK).JSON(fiber.Map{"users": users, "total_users": count})
 }
 
 type UserEdit struct {
@@ -72,18 +72,18 @@ type UserEdit struct {
 	Admin    bool   `json:"is_admin"`
 }
 
-func EditUser(c echo.Context) error {
-	db := c.Get("db").(*bun.DB)
-	id := c.Param("id")
+func EditUser(c fiber.Ctx) error {
+	db := db.GetDB()
+	id := c.Params("id")
 
-	var userEditData UserEdit
-	if err := c.Bind(&userEditData); err != nil {
+	userEditData := new(UserEdit)
+	if err := c.Bind().JSON(userEditData); err != nil {
 		fmt.Println(err)
-		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "An unknown error occoured!"})
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"message": "An unknown error occoured!"})
 	}
 
 	if !regexp.MustCompile(`^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,4}$`).MatchString(userEditData.Email) {
-		return c.JSON(http.StatusBadRequest, map[string]string{"message": "A valid email is required!"})
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"message": "A valid email is required!"})
 	}
 
 	plan := models.Plan{
@@ -91,12 +91,12 @@ func EditUser(c echo.Context) error {
 	}
 	planCount, err := db.NewSelect().Model(&plan).WherePK().Count(context.Background())
 	if err != nil || planCount == 0 {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Invalid plan id!"})
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"message": "Invalid plan id!"})
 	}
 
 	userId, err := uuid.Parse(id)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"message": "An unknown error occoured!"})
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"message": "An unknown error occoured!"})
 	}
 
 	var userData models.User
@@ -104,7 +104,7 @@ func EditUser(c echo.Context) error {
 
 	err = db.NewSelect().Model(&userData).WherePK().Relation("Plan").Scan(context.Background())
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "An unknown error occoured!"})
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"message": "An unknown error occoured!"})
 	}
 
 	if userEditData.Username != "" {
@@ -118,7 +118,7 @@ func EditUser(c echo.Context) error {
 	if userEditData.Password != "" {
 		hash, err := bcrypt.GenerateFromPassword([]byte(userEditData.Password), 12)
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"message": "An unknown error occoured!"})
+			return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"message": "An unknown error occoured!"})
 		}
 
 		userData.PasswordHash = string(hash)
@@ -134,48 +134,48 @@ func EditUser(c echo.Context) error {
 	_, err = db.NewUpdate().Model(&userData).WherePK().Exec(context.Background())
 	if err != nil {
 		fmt.Println(err)
-		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "An unknown error occoured!"})
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"message": "An unknown error occoured!"})
 	}
 
-	return c.JSON(http.StatusOK, map[string]string{"message": "Successfully updated user"})
+	return c.Status(http.StatusOK).JSON(fiber.Map{"message": "Successfully updated user"})
 }
 
-func GetPlans(c echo.Context) error {
-	db := c.Get("db").(*bun.DB)
+func GetPlans(c fiber.Ctx) error {
+	db := db.GetDB()
 
 	var plans []models.Plan
 	err := db.NewSelect().Model(&plans).Scan(context.Background())
 	if err != nil {
 		fmt.Println(err)
-		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "An unknown error occoured!"})
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"message": "An unknown error occoured!"})
 	}
 
-	return c.JSON(http.StatusOK, plans)
+	return c.Status(http.StatusOK).JSON(plans)
 }
 
-func CreateUser(c echo.Context) error {
-	var signupData models.SignupData
+func CreateUser(c fiber.Ctx) error {
+	signupData := new(models.SignupData)
 
-	if err := c.Bind(&signupData); err != nil {
+	if err := c.Bind().JSON(signupData); err != nil {
 		fmt.Println(err)
-		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "An unknown error occoured!"})
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"message": "An unknown error occoured!"})
 	}
 
 	if signupData.Username == "" || signupData.Password == "" || signupData.Email == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"message": "A password, username and email are required!"})
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"message": "A password, username and email are required!"})
 	}
 
 	// if email is not valid
 	if !regexp.MustCompile(`^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,4}$`).MatchString(signupData.Email) {
-		return c.JSON(http.StatusBadRequest, map[string]string{"message": "A valid email is required!"})
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"message": "A valid email is required!"})
 	}
 
-	db := c.Get("db").(*bun.DB)
+	db := db.GetDB()
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(signupData.Password), 12)
 	if err != nil {
 		fmt.Println(err)
-		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "An unknown error occoured!"})
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"message": "An unknown error occoured!"})
 	}
 
 	user := &models.User{
@@ -187,13 +187,13 @@ func CreateUser(c echo.Context) error {
 	_, err = db.NewInsert().Model(user).Exec(context.Background())
 
 	if err != nil {
-		return c.JSON(http.StatusConflict, map[string]string{"message": "A user with that email or username already exists!"})
+		return c.Status(http.StatusConflict).JSON(fiber.Map{"message": "A user with that email or username already exists!"})
 	}
 
 	err = db.NewSelect().Model(user).WherePK().Relation("Plan").Scan(context.Background())
 	if err != nil {
 		fmt.Println(err)
-		return c.JSON(http.StatusNotFound, map[string]string{"message": "An unknown error occoured!"})
+		return c.Status(http.StatusNotFound).JSON(fiber.Map{"message": "An unknown error occoured!"})
 	}
 
 	err = os.Mkdir(fmt.Sprintf("%s/%s", os.Getenv("STORAGE_PATH"), user.ID), os.ModePerm)
@@ -202,13 +202,13 @@ func CreateUser(c echo.Context) error {
 		return err
 	}
 
-	return c.JSON(http.StatusOK, map[string]string{"message": "Successfully created user"})
+	return c.Status(http.StatusOK).JSON(fiber.Map{"message": "Successfully created user"})
 }
 
 // Stolen from Gitea https://github.com/go-gitea/gitea
-func SystemStatus(c echo.Context) error {
+func SystemStatus(c fiber.Ctx) error {
 	updateSystemStatus()
-	return c.JSON(http.StatusOK, map[string]interface{}{
+	return c.Status(http.StatusOK).JSON(fiber.Map{
 		"uptime":                     sysStatus.StartTime,
 		"num_goroutine":              sysStatus.NumGoroutine,
 		"cur_mem_usage":              sysStatus.MemAllocated,

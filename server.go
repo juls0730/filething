@@ -5,12 +5,13 @@ package main
 
 import (
 	"filething/ui"
+	"fmt"
 	"io/fs"
-	"net/http"
 	"path/filepath"
 	"strings"
 
-	"github.com/labstack/echo/v4"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/static"
 )
 
 type embeddedFS struct {
@@ -21,55 +22,61 @@ type embeddedFS struct {
 func (fs *embeddedFS) Open(name string) (fs.File, error) {
 	// Prepend the prefix to the requested file name
 	publicPath := filepath.Join(fs.prefix, name)
-	return fs.baseFS.Open(publicPath)
+	fmt.Println("Reading file:", publicPath)
+	file, err := fs.baseFS.Open(publicPath)
+	if err != nil {
+		return nil, fmt.Errorf("file not found: %s", publicPath)
+	}
+
+	fmt.Println("File found:", publicPath, file)
+
+	return file, err
 }
 
 var publicFS = &embeddedFS{
-	baseFS: ui.DistDirFS,
+	baseFS: ui.DistDir,
 	prefix: "public/",
 }
 
 func init() {
-	initUi = func(e *echo.Echo) {
-		e.GET("/*", echo.StaticDirectoryHandler(publicFS, false))
+	initUi = func(app *fiber.App) {
+		app.Get("/*", static.New("", static.Config{
+			FS: publicFS,
+		}))
 
-		e.HTTPErrorHandler = customHTTPErrorHandler
-	}
-}
-
-// Custom Error handling since Nuxt relies on the 404 page for dynamic pages we still want api routes to use the default
-// error handling built into echo
-func customHTTPErrorHandler(err error, c echo.Context) {
-	if he, ok := err.(*echo.HTTPError); ok && he.Code == http.StatusNotFound {
-		path := c.Request().URL.Path
-
-		if !strings.HasPrefix(path, "/api") {
-			file, err := publicFS.Open("404.html")
-			if err != nil {
-				c.Logger().Error(err)
+		app.Use(func(c fiber.Ctx) error {
+			err := c.Next()
+			if err == nil {
+				return nil
 			}
 
-			fileInfo, err := file.Stat()
-			if err != nil {
-				c.Logger().Error(err)
-			}
+			if fiber.ErrNotFound == err {
+				path := c.Path()
+				if !strings.HasPrefix(path, "/api") {
+					file, err := publicFS.Open("404.html")
+					if err != nil {
+						c.App().Server().Logger.Printf("Error opening 404.html: %s", err)
+						return err
+					}
+					defer file.Close()
 
-			fileBuf := make([]byte, fileInfo.Size())
-			_, err = file.Read(fileBuf)
-			defer func() {
-				if err := file.Close(); err != nil {
-					panic(err)
+					fileInfo, err := file.Stat()
+					if err != nil {
+						c.App().Server().Logger.Printf("An error occurred while getting the file info: %s", err)
+						return err
+					}
+
+					fileBuf := make([]byte, fileInfo.Size())
+					_, err = file.Read(fileBuf)
+					if err != nil {
+						c.App().Server().Logger.Printf("An error occurred while reading the file: %s", err)
+						return err
+					}
+
+					return c.Status(fiber.StatusNotFound).SendString(string(fileBuf))
 				}
-			}()
-			if err != nil {
-				c.Logger().Error(err)
-				panic(err)
 			}
-
-			c.HTML(http.StatusNotFound, string(fileBuf))
-			return
-		}
+			return err
+		})
 	}
-
-	c.Echo().DefaultHTTPErrorHandler(err, c)
 }

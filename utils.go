@@ -1,17 +1,16 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"os/signal"
 	"syscall"
 
-	"github.com/labstack/echo/v4"
+	"github.com/gofiber/fiber/v3"
 )
 
-func spawnProcess(cmd string, args []string, e *echo.Echo) error {
+func spawnProcess(cmd string, args []string, app *fiber.App) error {
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	go func() {
@@ -45,7 +44,7 @@ func spawnProcess(cmd string, args []string, e *echo.Echo) error {
 
 		fmt.Println("sub process server stopped")
 
-		if err := e.Shutdown(context.Background()); err != nil {
+		if err := app.Shutdown(); err != nil {
 			fmt.Println("Error shutting down HTTP server:", err)
 		}
 	}()

@@ -20,7 +20,7 @@ export const useUser = () => {
 
     // Fetch the user only if it's uninitialized (i.e., null)
     const getUser = async () => {
-        if (!user.value.fetched) {
+        if (!user.value.fetched && useCookie('sessionToken').value) {
             await fetchUser()
         }
 

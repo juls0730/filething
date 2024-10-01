@@ -2,39 +2,28 @@ package main
 
 import (
 	"context"
-	"database/sql"
+	"filething/db"
 	"filething/middleware"
 	"filething/models"
 	"filething/routes"
 	"fmt"
 	"net/http"
-	"os"
 	"time"
 
-	"github.com/labstack/echo/v4"
-	echoMiddleware "github.com/labstack/echo/v4/middleware"
+	"github.com/bytedance/sonic"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/cors"
+	"github.com/gofiber/fiber/v3/middleware/helmet"
+	"github.com/gofiber/fiber/v3/middleware/pprof"
 	"github.com/uptrace/bun"
-	"github.com/uptrace/bun/dialect/pgdialect"
-	"github.com/uptrace/bun/driver/pgdriver"
 )
 
-var initUi func(e *echo.Echo)
+var initUi func(app *fiber.App)
 
 func main() {
-	dbHost := os.Getenv("DB_HOST")
-	dbName := os.Getenv("DB_NAME")
-	dbUser := os.Getenv("DB_USER")
-	dbPasswd := os.Getenv("DB_PASSWD")
+	db.DBConnect()
 
-	if dbHost == "" || dbName == "" || dbUser == "" || os.Getenv("STORAGE_PATH") == "" {
-		panic("Missing database environment variabled!")
-	}
-
-	// TODO: retry connection or only connect at the first moment that we need the db
-	dbUrl := fmt.Sprintf("postgres://%s:%s@%s/%s?dial_timeout=10s&sslmode=disable", dbUser, dbPasswd, dbHost, dbName)
-
-	sqldb := sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(dbUrl)))
-	db := bun.NewDB(sqldb, pgdialect.New())
+	db := db.GetDB()
 
 	err := createSchema(db)
 	if err != nil {
@@ -46,66 +35,66 @@ func main() {
 		panic(err)
 	}
 
-	e := echo.New()
-
-	// insert the db into the echo context so it is easily accessible in routes and middleware
-	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			c.Set("db", db)
-			return next(c)
-		}
+	app := fiber.New(fiber.Config{
+		JSONEncoder:                  sonic.Marshal,
+		JSONDecoder:                  sonic.Unmarshal,
+		DisablePreParseMultipartForm: true,
+		BodyLimit:                    100 * 1024 * 1024 * 1024,
 	})
 
-	e.Use(echoMiddleware.Gzip())
-	e.Use(echoMiddleware.CORS())
-	e.Use(echoMiddleware.CSRFWithConfig(echoMiddleware.CSRFConfig{
-		TokenLookup:    "cookie:_csrf",
-		CookiePath:     "/",
-		CookieSecure:   true,
-		CookieHTTPOnly: true,
-		CookieSameSite: http.SameSiteStrictMode,
-	}))
-	e.Use(echoMiddleware.Secure())
+	app.Use(pprof.New())
+	// app.Use(compress.New())
+	app.Use(cors.New())
+	// TODO: make this not a constant pain in my ass
+	// app.Use(csrf.New(csrf.Config{
+	// 	KeyLookup:      "cookie:_csrf",
+	// 	CookieName:     "_csrf",
+	// 	CookieSameSite: "Strict",
+	// 	Expiration:     time.Hour * 24,
+	// 	CookieSecure:   true,
+	// 	CookieHTTPOnly: true,
+	// }))
+	app.Use(helmet.New())
 
-	api := e.Group("/api")
+	api := app.Group("/api")
 	{
-		api.POST("/login", routes.LoginHandler)
-		api.POST("/signup", routes.SignupHandler)
+		api.Post("/login", routes.LoginHandler)
+		api.Post("/signup", routes.SignupHandler)
 
 		// everything past this needs auth
 		api.Use(middleware.SessionMiddleware(db))
-		api.POST("/logout", routes.LogoutHandler)
-		api.GET("/user", routes.GetUser)
+		api.Post("/logout", routes.LogoutHandler)
+		api.Get("/user", routes.GetUser)
 
-		api.POST("/files/upload*", routes.UploadFile)
-		api.GET("/files/get/*", routes.GetFiles)
-		api.GET("/files/download*", routes.GetFile)
-		api.POST("/files/delete*", routes.DeleteFiles)
+		api.Post("/files/upload*", routes.UploadFile)
+		api.Get("/files/get/*", routes.GetFiles)
+		api.Get("/files/download*", routes.GetFile)
+		api.Post("/files/delete*", routes.DeleteFiles)
 
 		admin := api.Group("/admin")
 		{
-			admin.Use(middleware.AdminMiddleware())
-			admin.GET("/status", routes.SystemStatus)
-			admin.GET("/plans", routes.GetPlans)
-			admin.GET("/users", routes.GetUsers)
-			admin.GET("/users/:id", routes.GetUser)
-			admin.POST("/users/edit/:id", routes.EditUser)
-			admin.POST("/users/new", routes.CreateUser)
+			admin.Use(middleware.AdminMiddleware(db))
+			admin.Get("/status", routes.SystemStatus)
+			admin.Get("/plans", routes.GetPlans)
+			admin.Get("/users", routes.GetUsers)
+			admin.Get("/users/:id", routes.GetUser)
+			admin.Post("/users/edit/:id", routes.EditUser)
+			admin.Post("/users/new", routes.CreateUser)
 		}
 	}
 
 	// redirects to the proper pages if you are trying to access one that expects you have/dont have an api key
 	// this isnt explicitly required, but it provides a better experience than doing this same thing clientside
-	e.Use(middleware.AuthCheckMiddleware)
+	app.Use(middleware.AuthCheckMiddleware)
 
 	// calls out to a function set by either server.go server_dev.go based on the presence of the dev tag, and hosts
 	// either the static files that get embedded into the binary in ui/embed.go or proxies the dev server that gets
 	// run in the provided function
-	initUi(e)
+	initUi(app)
 
 	routes.AppStartTime = time.Now().UTC()
 
-	if err := e.Start(":1323"); err != nil && err != http.ErrServerClosed {
+	if err = app.Listen(":1323"); err != nil && err != http.ErrServerClosed {
 		fmt.Println("Error starting HTTP server:", err)
 	}
 }

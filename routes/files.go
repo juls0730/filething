@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/labstack/echo/v4"
+	"github.com/gofiber/fiber/v3"
 )
 
 type UploadResponse struct {
@@ -20,10 +20,10 @@ type UploadResponse struct {
 	File  File  `json:"file"`
 }
 
-func UploadFile(c echo.Context) error {
-	user := c.Get("user").(*models.User)
+func UploadFile(c fiber.Ctx) error {
+	user := c.Locals("user").(*models.User)
 
-	fullPath := strings.Trim(c.Param("*"), "/")
+	fullPath := strings.Trim(c.Params("*"), "/")
 	basePath := fmt.Sprintf("%s/%s/%s/", os.Getenv("STORAGE_PATH"), user.ID, fullPath)
 
 	currentUsage, err := calculateStorageUsage(fmt.Sprintf("%s/%s", os.Getenv("STORAGE_PATH"), user.ID))
@@ -44,12 +44,12 @@ func UploadFile(c echo.Context) error {
 		}
 	}
 
-	reader, err := c.Request().MultipartReader()
+	form, err := c.MultipartForm()
 	if err != nil {
 		if err == http.ErrNotMultipart {
 			if directoryExists {
 				// Directories exist, but no file was uploaded
-				return c.JSON(http.StatusBadRequest, map[string]string{"message": "A folder with that name already exists"})
+				return c.Status(http.StatusBadRequest).JSON(fiber.Map{"message": "A folder with that name already exists"})
 			}
 			// Directories were just created, and no file was provided
 			entry, err := os.Stat(basePath)
@@ -69,22 +69,18 @@ func UploadFile(c echo.Context) error {
 				},
 			}
 
-			return c.JSON(http.StatusOK, uploadFile)
+			return c.Status(http.StatusOK).JSON(uploadFile)
 		}
 		fmt.Println(err)
 		return err
 	}
 
-	part, err := reader.NextPart()
-	if err != nil {
-		fmt.Println(err)
-		return err
-	}
+	file := form.File["file"][0]
 
-	filepath := filepath.Join(basePath, part.FileName())
+	filepath := filepath.Join(basePath, file.Filename)
 
 	if _, err = os.Stat(filepath); err == nil {
-		return c.JSON(http.StatusConflict, map[string]string{"message": "File with that name already exists"})
+		return c.Status(http.StatusConflict).JSON(fiber.Map{"message": "File with that name already exists"})
 	}
 
 	dst, err := os.Create(filepath)
@@ -95,16 +91,22 @@ func UploadFile(c echo.Context) error {
 	defer dst.Close()
 
 	// Read the file manually because otherwise we are limited by the arbitrarily small size of /tmp
-	buffer := make([]byte, 4096)
+	buffer := make([]byte, 1*1024*1024)
 	totalSize := int64(0)
 
+	fd, err := file.Open()
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+
 	for {
-		n, readErr := part.Read(buffer)
+		n, readErr := fd.Read(buffer)
 
 		if readErr != nil && readErr == io.ErrUnexpectedEOF {
 			dst.Close()
 			os.Remove(filepath)
-			return c.JSON(http.StatusRequestTimeout, map[string]string{"message": "Upload canceled"})
+			return c.Status(http.StatusRequestTimeout).JSON(fiber.Map{"message": "Upload canceled"})
 		}
 
 		if readErr != nil && readErr != io.EOF {
@@ -117,7 +119,7 @@ func UploadFile(c echo.Context) error {
 		if currentUsage+totalSize > user.Plan.MaxStorage {
 			dst.Close()
 			os.Remove(filepath)
-			return c.JSON(http.StatusInsufficientStorage, map[string]string{"message": "Insufficient storage space"})
+			return c.Status(http.StatusInsufficientStorage).JSON(fiber.Map{"message": "Insufficient storage space"})
 		}
 
 		if _, err := dst.Write(buffer[:n]); err != nil {
@@ -143,7 +145,7 @@ func UploadFile(c echo.Context) error {
 				},
 			}
 
-			return c.JSON(http.StatusOK, uploadFile)
+			return c.Status(http.StatusOK).JSON(uploadFile)
 		}
 	}
 }
@@ -185,10 +187,10 @@ type File struct {
 	LastModified string `json:"last_modified"`
 }
 
-func GetFiles(c echo.Context) error {
-	user := c.Get("user").(*models.User)
+func GetFiles(c fiber.Ctx) error {
+	user := c.Locals("user").(*models.User)
 
-	fullPath := strings.Trim(c.Param("*"), "/")
+	fullPath := strings.Trim(c.Params("*"), "/")
 	basePath := fmt.Sprintf("%s/%s/%s/", os.Getenv("STORAGE_PATH"), user.ID, fullPath)
 
 	f, err := os.Open(basePath)
@@ -214,22 +216,22 @@ func GetFiles(c echo.Context) error {
 		})
 	}
 
-	return c.JSON(http.StatusOK, jsonFiles)
+	return c.Status(http.StatusOK).JSON(jsonFiles)
 }
 
-func GetFile(c echo.Context) error {
-	user := c.Get("user").(*models.User)
+func GetFile(c fiber.Ctx) error {
+	user := c.Locals("user").(*models.User)
 
-	fullPath := strings.Trim(c.Param("*"), "/")
+	fullPath := strings.Trim(c.Params("*"), "/")
 
-	fileNamesParam := c.QueryParam("filenames")
+	fileNamesParam := c.Query("filenames")
 	var fileNames []string
 	if fileNamesParam != "" {
 		fileNames = strings.Split(fileNamesParam, ",")
 	}
 
 	if fullPath == "" && len(fileNames) == 0 {
-		return c.JSON(http.StatusBadRequest, map[string]string{"message": "A file is required"})
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"message": "A file is required"})
 	}
 
 	basePath := fmt.Sprintf("%s/%s", os.Getenv("STORAGE_PATH"), user.ID)
@@ -239,12 +241,12 @@ func GetFile(c echo.Context) error {
 
 	fileInfo, err := os.Stat(basePath)
 	if err != nil {
-		return c.JSON(http.StatusNotFound, map[string]string{"message": "No file found!"})
+		return c.Status(http.StatusNotFound).JSON(fiber.Map{"message": "No file found!"})
 	}
 
 	var buf bytes.Buffer
 	if fileInfo.IsDir() {
-		c.Response().Header().Set(echo.HeaderContentType, "application/zip")
+		c.Type("application/zip")
 
 		if len(fileNames) != 0 {
 			err := zipFiles(&buf, filepath.Join(basePath, fullPath), fileNames)
@@ -253,7 +255,7 @@ func GetFile(c echo.Context) error {
 				return err
 			}
 
-			_, err = buf.WriteTo(c.Response().Writer)
+			_, err = buf.WriteTo(c.Response().BodyWriter())
 			return err
 		}
 
@@ -263,10 +265,10 @@ func GetFile(c echo.Context) error {
 			return err
 		}
 
-		_, err = buf.WriteTo(c.Response().Writer)
+		_, err = buf.WriteTo(c.Response().BodyWriter())
 		return err
 	} else {
-		return c.File(basePath)
+		return c.SendFile(basePath)
 	}
 }
 
@@ -343,21 +345,21 @@ type DeleteRequest struct {
 	Files []File `json:"files"`
 }
 
-func DeleteFiles(c echo.Context) error {
-	var deleteData DeleteRequest
+func DeleteFiles(c fiber.Ctx) error {
+	deleteData := new(DeleteRequest)
 
-	if err := c.Bind(&deleteData); err != nil {
+	if err := c.Bind().JSON(deleteData); err != nil {
 		fmt.Println(err)
-		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "An unknown error occoured!"})
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"message": "An unknown error occoured!"})
 	}
 
 	if len(deleteData.Files) == 0 {
-		return c.JSON(http.StatusBadRequest, map[string]string{"message": "Files are required!"})
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"message": "Files are required!"})
 	}
 
-	user := c.Get("user").(*models.User)
+	user := c.Locals("user").(*models.User)
 
-	fullPath := strings.Trim(c.Param("*"), "/")
+	fullPath := strings.Trim(c.Params("*"), "/")
 	basePath := fmt.Sprintf("%s/%s/%s", os.Getenv("STORAGE_PATH"), user.ID, fullPath)
 
 	for _, file := range deleteData.Files {
@@ -365,7 +367,7 @@ func DeleteFiles(c echo.Context) error {
 		err := os.RemoveAll(path)
 		if err != nil {
 			fmt.Println(err)
-			return c.JSON(http.StatusInternalServerError, map[string]string{"message": "An unknown error occoured!"})
+			return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"message": "An unknown error occoured!"})
 		}
 	}
 
@@ -376,5 +378,5 @@ func DeleteFiles(c echo.Context) error {
 		word = word + "s"
 	}
 
-	return c.JSON(http.StatusOK, map[string]string{"message": fmt.Sprintf("Successfully deleted %d %s", fileLen, word)})
+	return c.Status(http.StatusOK).JSON(fiber.Map{"message": fmt.Sprintf("Successfully deleted %d %s", fileLen, word)})
 }

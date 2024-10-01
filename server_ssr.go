@@ -7,38 +7,70 @@ import (
 	"embed"
 	"filething/ui"
 	"io"
-	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 
-	"github.com/labstack/echo/v4"
-	echoMiddleware "github.com/labstack/echo/v4/middleware"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/proxy"
 )
 
+// func init() {
+// 	initUi = func(app *fiber.App) {
+// 		tmpDir, err := os.MkdirTemp("", "filething-ssr")
+// 		if err != nil {
+// 			panic(err)
+// 		}
+
+// 		err = copyEmbeddedFiles(ui.DistDir, ".output", tmpDir)
+// 		if err != nil {
+// 			panic(err)
+// 		}
+
+// 		path := filepath.Join(tmpDir, "server/index.mjs")
+// 		spawnProcess("node", []string{path}, app)
+
+// 		// target := "localhost:3000"
+// 		// e.Group("/*").Use(echoMiddleware.ProxyWithConfig(echoMiddleware.ProxyConfig{
+// 		// 	Balancer: echoMiddleware.NewRoundRobinBalancer([]*echoMiddleware.ProxyTarget{
+// 		// 		{URL: &url.URL{
+// 		// 			Scheme: "http",
+// 		// 			Host:   target,
+// 		// 		}},
+// 		// 	}),
+// 		// }))
+// 		app.Get("/*", proxy.Forward("http://localhost:3000"))
+// 	}
+// }
+
 func init() {
-	initUi = func(e *echo.Echo) {
-		tmpDir, err := os.MkdirTemp("", "filething-ssr")
-		if err != nil {
-			panic(err)
-		}
+	initUi = func(app *fiber.App) {
+		if !fiber.IsChild() {
+			tmpDir, err := os.MkdirTemp("", "filething-ssr")
+			if err != nil {
+				panic(err)
+			}
 
-		err = copyEmbeddedFiles(ui.DistDir, ".output", tmpDir)
-		if err != nil {
-			panic(err)
-		}
+			err = copyEmbeddedFiles(ui.DistDir, ".output", tmpDir)
+			if err != nil {
+				panic(err)
+			}
 
-		path := filepath.Join(tmpDir, "server/index.mjs")
-		spawnProcess("node", []string{path}, e)
+			path := filepath.Join(tmpDir, "server/index.mjs")
+
+			spawnProcess("node", []string{path}, app)
+		}
 
 		target := "localhost:3000"
-		e.Group("/*").Use(echoMiddleware.ProxyWithConfig(echoMiddleware.ProxyConfig{
-			Balancer: echoMiddleware.NewRoundRobinBalancer([]*echoMiddleware.ProxyTarget{
-				{URL: &url.URL{
-					Scheme: "http",
-					Host:   target,
-				}},
-			}),
-		}))
+		app.All("/*", func(c fiber.Ctx) error {
+			path := c.Path()
+			if strings.HasPrefix(path, "/api") {
+				return c.Next()
+			}
+
+			request := c.Request().URI()
+			return proxy.Do(c, "http://"+target+string(request.RequestURI()))
+		})
 	}
 }
 
