@@ -45,12 +45,12 @@ let { data: plans } = await useFetch<Plan[]>('/api/admin/plans');
             </h4>
             <div class="p-4">
                 <label for="username" class="block max-w-64 text-sm">Username</label>
-                <Input v-model="username" :value="username" id="username" placeholder="Username" class="w-full mb-2" />
+                <input v-model="username" id="username" placeholder="Username" class="w-full mb-2" />
                 <label for="email" class="block max-w-64 text-sm">Email</label>
-                <Input v-model="email" :value="email" id="email" placeholder="Email" class="w-full mb-2" />
+                <input v-model="email" id="email" placeholder="Email" class="w-full mb-2" />
                 <div class="mb-2">
                     <label for="password" class="block max-w-64 text-sm">Password</label>
-                    <Input v-model="password" id="password" placeholder="Password" class="w-full" />
+                    <input v-model="password" id="password" placeholder="Password" class="w-full" />
                     <p class="text-muted text-sm">Leave the password empty to keep it unchanged</p>
                 </div>
                 <label for="plan_id" class="block max-w-64 text-sm">Plan</label>

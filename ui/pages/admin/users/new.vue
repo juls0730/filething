@@ -46,11 +46,11 @@ onUnmounted(() => {
             </h4>
             <div class="p-4">
                 <label for="username" class="block max-w-64 text-sm">Username</label>
-                <Input v-model="username" :value="username" id="username" placeholder="Username" autocomplete="off" class="w-full mb-2" />
+                <input v-model="username" id="username" placeholder="Username" autocomplete="off" class="w-full mb-2" />
                 <label for="email" class="block max-w-64 text-sm">Email</label>
-                <Input v-model="email" :value="email" id="email" placeholder="Email" autocomplete="off" class="w-full mb-2" />
+                <input v-model="email" id="email" placeholder="Email" autocomplete="off" class="w-full mb-2" />
                 <label for="password" class="block max-w-64 text-sm">Password</label>
-                <Input v-model="password" :value="password" id="password" type="password" placeholder="Password" autocomplete="off" class="w-full mb-2" />
+                <input v-model="password" id="password" type="password" placeholder="Password" autocomplete="off" class="w-full mb-2" />
                 <p class="text-love mb-2">{{ error }}</p>
                 <div>
                     <button

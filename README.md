@@ -11,7 +11,7 @@ To run filething, run
 
 ```BASH
 bun --cwd=./ui install
-bun --bun --cwd=./ui run generate
+RENDERING_MODE=static bun --bun --cwd=./ui run generate
 go build -tags netgo -ldflags=-s
 DB_HOST=localhost:5432 DB_NAME=filething DB_USER=postgres STORAGE_PATH=data ./filething
 ```

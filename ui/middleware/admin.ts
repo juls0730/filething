@@ -5,7 +5,7 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
     const { getUser } = useUser()
     const user = await getUser()
 
-    if (!user || !user.is_admin) {
+    if (!user.id || !user.is_admin) {
         return navigateTo('/home')
     }
 })

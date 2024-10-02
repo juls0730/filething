@@ -317,7 +317,7 @@ const downloadFiles = async () => {
                 <div class="mb-3 flex flex-col">
                     <label for="folderNameInput" class="text-sm">name</label>
                     <!-- TODO figure out why I cant focus this when the popup opens -->
-                    <Input id="folderNameInput" v-model="folderName" placeholder="Folder name" />
+                    <input id="folderNameInput" v-model="folderName" placeholder="Folder name" />
                     <p class="text-love">{{ folderError }}</p>
                 </div>
                 <div class="ml-auto flex gap-x-1.5">

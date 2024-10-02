@@ -15,34 +15,6 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/proxy"
 )
 
-// func init() {
-// 	initUi = func(app *fiber.App) {
-// 		tmpDir, err := os.MkdirTemp("", "filething-ssr")
-// 		if err != nil {
-// 			panic(err)
-// 		}
-
-// 		err = copyEmbeddedFiles(ui.DistDir, ".output", tmpDir)
-// 		if err != nil {
-// 			panic(err)
-// 		}
-
-// 		path := filepath.Join(tmpDir, "server/index.mjs")
-// 		spawnProcess("node", []string{path}, app)
-
-// 		// target := "localhost:3000"
-// 		// e.Group("/*").Use(echoMiddleware.ProxyWithConfig(echoMiddleware.ProxyConfig{
-// 		// 	Balancer: echoMiddleware.NewRoundRobinBalancer([]*echoMiddleware.ProxyTarget{
-// 		// 		{URL: &url.URL{
-// 		// 			Scheme: "http",
-// 		// 			Host:   target,
-// 		// 		}},
-// 		// 	}),
-// 		// }))
-// 		app.Get("/*", proxy.Forward("http://localhost:3000"))
-// 	}
-// }
-
 func init() {
 	initUi = func(app *fiber.App) {
 		if !fiber.IsChild() {
@@ -58,6 +30,7 @@ func init() {
 
 			path := filepath.Join(tmpDir, "server/index.mjs")
 
+			// bun is nice, but it still has issues with memory leaks
 			spawnProcess("node", []string{path}, app)
 		}
 

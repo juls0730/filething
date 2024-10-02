@@ -62,3 +62,30 @@ html, body {
 *:focus-visible {
     outline: none;
 }
+
+/* input */
+input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="submit"], [type="reset"], [type="button"]),
+textarea {
+    padding: 0.5rem 1rem 0.5rem 1rem;
+    resize: none;
+    background-color: rgb(var(--color-overlay));
+    border-radius: 0.375rem;
+    border-width: 1px;
+    transition: border-color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    max-width: 16rem;
+}
+
+input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="submit"], [type="reset"], [type="button"]):hover,
+textarea:hover {
+    border-color: rgb(var(--color-muted) / 0.4);
+}
+
+input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="submit"], [type="reset"], [type="button"]):focus,
+textarea:focus {
+    border-color: rgb(var(--color-muted) / 0.6);
+}
+
+::placeholder {
+    font-style: italic;
+    color: rgb(var(--color-subtle));
+}

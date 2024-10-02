@@ -6,6 +6,9 @@ import (
 	"filething/models"
 	"fmt"
 	"io"
+	"log"
+	"mime"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
@@ -44,8 +47,7 @@ func UploadFile(c fiber.Ctx) error {
 		}
 	}
 
-	form, err := c.MultipartForm()
-	if err != nil {
+	if string(c.Request().Header.ContentType()) == "application/json" {
 		if err == http.ErrNotMultipart {
 			if directoryExists {
 				// Directories exist, but no file was uploaded
@@ -75,9 +77,20 @@ func UploadFile(c fiber.Ctx) error {
 		return err
 	}
 
-	file := form.File["file"][0]
+	_, params, err := mime.ParseMediaType(string(c.Request().Header.ContentType()))
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	filepath := filepath.Join(basePath, file.Filename)
+	reader := multipart.NewReader(c.Request().BodyStream(), params["boundary"])
+
+	part, err := reader.NextPart()
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+
+	filepath := filepath.Join(basePath, part.FileName())
 
 	if _, err = os.Stat(filepath); err == nil {
 		return c.Status(http.StatusConflict).JSON(fiber.Map{"message": "File with that name already exists"})
@@ -94,14 +107,8 @@ func UploadFile(c fiber.Ctx) error {
 	buffer := make([]byte, 1*1024*1024)
 	totalSize := int64(0)
 
-	fd, err := file.Open()
-	if err != nil {
-		fmt.Println(err)
-		return err
-	}
-
 	for {
-		n, readErr := fd.Read(buffer)
+		n, readErr := part.Read(buffer)
 
 		if readErr != nil && readErr == io.ErrUnexpectedEOF {
 			dst.Close()

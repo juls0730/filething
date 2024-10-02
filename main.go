@@ -40,6 +40,7 @@ func main() {
 		JSONDecoder:                  sonic.Unmarshal,
 		DisablePreParseMultipartForm: true,
 		BodyLimit:                    100 * 1024 * 1024 * 1024,
+		StreamRequestBody:            true,
 	})
 
 	app.Use(pprof.New())
@@ -67,6 +68,7 @@ func main() {
 		api.Get("/user", routes.GetUser)
 
 		api.Post("/files/upload*", routes.UploadFile)
+		// api.Post("/files/upload/chunked*", routes.UploadFileInChunks)
 		api.Get("/files/get/*", routes.GetFiles)
 		api.Get("/files/download*", routes.GetFile)
 		api.Post("/files/delete*", routes.DeleteFiles)
@@ -85,7 +87,7 @@ func main() {
 
 	// redirects to the proper pages if you are trying to access one that expects you have/dont have an api key
 	// this isnt explicitly required, but it provides a better experience than doing this same thing clientside
-	app.Use(middleware.AuthCheckMiddleware)
+	app.Use(middleware.AuthCheckMiddleware(db))
 
 	// calls out to a function set by either server.go server_dev.go based on the presence of the dev tag, and hosts
 	// either the static files that get embedded into the binary in ui/embed.go or proxies the dev server that gets

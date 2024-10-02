@@ -2,7 +2,7 @@
 import type { NuxtError } from '#app';
 
 definePageMeta({
-    middleware: ["auth", "admin"],
+    // middleware: ["auth", "admin"],
     layout: "admin"
 });
 

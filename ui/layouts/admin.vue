@@ -2,10 +2,6 @@
 import { useUser } from '~/composables/useUser'
 const { getUser } = useUser()
 
-definePageMeta({
-    middleware: ["auth", "admin"]
-});
-
 const user = await getUser();
 const route = useRoute();
 
